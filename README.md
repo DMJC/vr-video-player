@@ -9,7 +9,7 @@ You can view videos directly in the VR headset or as an overlay in the SteamVR m
 Might not work when using a compositor such as picom when using the glx backend (when capturing a window).
 
 # Building
-Run `./build.sh` or if you are running Arch Linux, then you can find it on aur under the name vr-video-player-git (`yay -S vr-video-player-git`).\
+Run `./build.sh` or if you are running Arch Linux, then you can find it on aur under the name vr-video-player (`yay -S vr-video-player`).\
 Dependencies needed when building using `build.sh`: `glm, glew, sdl2, openvr, libx11, libxcomposite, libxfixes, libmpv, libxdo (xdotool)`.
 
 # How to use
