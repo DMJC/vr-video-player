@@ -60,6 +60,7 @@ private:
         int32_t width = 0;
         int32_t height = 0;
         int32_t stride = 0;
+        int32_t offset = 0;
         uint32_t format = 0;
         void *data = nullptr;
     };
@@ -68,7 +69,7 @@ private:
     bool setup_wayland();
     void destroy_wayland();
 
-    bool ensure_buffer(int32_t width, int32_t height, int32_t stride, uint32_t format);
+    bool ensure_buffer(int32_t width, int32_t height, int32_t stride, uint32_t format, int32_t offset);
     void destroy_buffer();
     void request_frame();
     void handle_ready(uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec);

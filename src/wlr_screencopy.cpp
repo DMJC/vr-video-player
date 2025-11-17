@@ -167,14 +167,14 @@ void WlrScreencopy::destroy_wayland() {
     }
 }
 
-bool WlrScreencopy::ensure_buffer(int32_t width, int32_t height, int32_t stride, uint32_t format) {
-    if (buffer.buffer && buffer.width == width && buffer.height == height && buffer.stride == stride && buffer.format == format) {
+bool WlrScreencopy::ensure_buffer(int32_t width, int32_t height, int32_t stride, uint32_t format, int32_t offset) {
+    if (buffer.buffer && buffer.width == width && buffer.height == height && buffer.stride == stride && buffer.format == format && buffer.offset == offset) {
         return true;
     }
 
     destroy_buffer();
 
-    size_t size = static_cast<size_t>(height) * stride;
+    size_t size = static_cast<size_t>(offset) + static_cast<size_t>(height) * stride;
     int fd = create_shm_file(size);
     if (fd < 0)
         return false;
@@ -186,7 +186,7 @@ bool WlrScreencopy::ensure_buffer(int32_t width, int32_t height, int32_t stride,
     }
 
     wl_shm_pool *pool = wl_shm_create_pool(shm, fd, size);
-    wl_buffer *wlbuf = wl_shm_pool_create_buffer(pool, 0, width, height, stride, format);
+    wl_buffer *wlbuf = wl_shm_pool_create_buffer(pool, offset, width, height, stride, format);
 
     buffer.pool = pool;
     buffer.buffer = wlbuf;
@@ -195,6 +195,7 @@ bool WlrScreencopy::ensure_buffer(int32_t width, int32_t height, int32_t stride,
     buffer.width = width;
     buffer.height = height;
     buffer.stride = stride;
+    buffer.offset = offset;
     buffer.format = format;
     buffer.data = data;
     return true;
@@ -219,6 +220,7 @@ void WlrScreencopy::destroy_buffer() {
     }
     buffer.size = 0;
     buffer.width = buffer.height = buffer.stride = 0;
+    buffer.offset = 0;
     buffer.format = 0;
 }
 
@@ -238,7 +240,8 @@ void WlrScreencopy::handle_ready(uint32_t, uint32_t, uint32_t) {
     size_t size = static_cast<size_t>(buffer.height) * buffer.stride;
     {
         std::lock_guard<std::mutex> lock(frame_mutex);
-        frame_data.assign(static_cast<uint8_t *>(buffer.data), static_cast<uint8_t *>(buffer.data) + size);
+        uint8_t *start = static_cast<uint8_t *>(buffer.data) + buffer.offset;
+        frame_data.assign(start, start + size);
         frame_width = buffer.width;
         frame_height = buffer.height;
         frame_stride = buffer.stride;
@@ -332,7 +335,7 @@ void WlrScreencopy::xdg_output_description(void *, zxdg_output_v1 *, const char 
 
 void WlrScreencopy::frame_buffer(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride) {
     auto *self = static_cast<WlrScreencopy *>(data);
-    if (!self->ensure_buffer(width, height, stride, format)) {
+    if (!self->ensure_buffer(width, height, stride, format, 0)) {
         zwlr_screencopy_frame_v1_destroy(frame);
         self->pending_frame = false;
         return;
@@ -340,11 +343,11 @@ void WlrScreencopy::frame_buffer(void *data, zwlr_screencopy_frame_v1 *frame, ui
     zwlr_screencopy_frame_v1_copy(frame, self->buffer.buffer);
 }
 
-void WlrScreencopy::frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride, uint32_t, uint32_t, uint32_t) {
+void WlrScreencopy::frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride, uint32_t offset, uint32_t, uint32_t) {
     auto *self = static_cast<WlrScreencopy *>(data);
     // Fallback to shm copy
     const uint32_t resolved_stride = stride ? stride : width * 4;
-    if (!self->ensure_buffer(width, height, resolved_stride, format)) {
+    if (!self->ensure_buffer(width, height, resolved_stride, format, static_cast<int32_t>(offset))) {
         zwlr_screencopy_frame_v1_destroy(frame);
         self->pending_frame = false;
         return;
