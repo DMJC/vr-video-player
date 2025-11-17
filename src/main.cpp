@@ -34,6 +34,7 @@
 #include <GL/glew.h>
 #include "../include/window_texture.h"
 #include "../include/config.hpp"
+#include "wlr_screencopy.hpp"
 
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -343,7 +344,12 @@ private: // X compositor
 	Display *x_display = nullptr;
 	Atom net_active_window_atom;
 	Window src_window_id = None;
-	WindowTexture window_texture;
+    WindowTexture window_texture;
+    WlrScreencopy screencopy;
+    GLuint screencopy_texture = 0;
+    bool use_wlr_screencopy = true;
+    int screencopy_fps = 90;
+    std::string screencopy_output = "DP-3";
 	bool follow_focused = false;
 	bool focused_window_changed = true;
 	bool focused_window_set = false;
@@ -567,8 +573,10 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	const char *view_mode_arg = nullptr;
 	bool zoom_set = false;
 	bool cursor_scale_set = false;
-	bool cursor_wrap_set = false;
-	bool free_camera_set = false;
+        bool cursor_wrap_set = false;
+        bool free_camera_set = false;
+
+        use_wlr_screencopy = true;
 
 	memset(&window_texture, 0, sizeof(window_texture));
 
@@ -639,19 +647,26 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 			free_camera_set = true;
 		} else if(strcmp(argv[i], "--reduce-flicker") == 0) {
 			reduce_flicker = true;
-		} else if(strcmp(argv[i], "--overlay") == 0) {
-			overlay_mode = true;
-		} else if(strcmp(argv[i], "--overlay-key") == 0 && i < argc - 1) {
-			overlay_key = argv[i + 1];
-			++i;
-		} else if(strcmp(argv[i], "--overlay-width") == 0 && i < argc - 1) {
-			overlay_width = atof(argv[i + 1]);
-			++i;
-		} else if(strcmp(argv[i], "--overlay-mouse") == 0) {
-			overlay_mouse_controls = true;
-		} else if(strcmp(argv[i], "--no-overlay-mouse") == 0) {
-			overlay_mouse_controls = false;
-		}
+                } else if(strcmp(argv[i], "--overlay") == 0) {
+                        overlay_mode = true;
+                } else if(strcmp(argv[i], "--overlay-key") == 0 && i < argc - 1) {
+                        overlay_key = argv[i + 1];
+                        ++i;
+                } else if(strcmp(argv[i], "--overlay-width") == 0 && i < argc - 1) {
+                        overlay_width = atof(argv[i + 1]);
+                        ++i;
+                } else if(strcmp(argv[i], "--overlay-mouse") == 0) {
+                        overlay_mouse_controls = true;
+                } else if(strcmp(argv[i], "--no-overlay-mouse") == 0) {
+                        overlay_mouse_controls = false;
+                } else if(strcmp(argv[i], "--fps-120") == 0) {
+                        screencopy_fps = 120;
+                } else if(strcmp(argv[i], "--fps-90") == 0) {
+                        screencopy_fps = 90;
+                } else if(strcmp(argv[i], "--output") == 0 && i < argc - 1) {
+                        screencopy_output = argv[i + 1];
+                        ++i;
+                }
                 else if(argv[i][0] == '-') {
                         fprintf(stderr, "Invalid flag: %s\n", argv[i]);
                         usage();
@@ -664,10 +679,11 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
                                 argv[i] += 7; // "window:".length
                         }
                         src_window_id = strtol(argv[i], nullptr, 0);
+                        use_wlr_screencopy = false;
                 }
         }
 
-        if(src_window_id == None && !follow_focused) {
+        if(src_window_id == None && !follow_focused && !use_wlr_screencopy) {
                 fprintf(stderr, "Missing required window_id or --follow-focused option\n");
                 usage();
         }
@@ -937,13 +953,28 @@ bool CMainApplication::BInit()
 
 	fprintf(stderr, "Using openvr config file: %s\n", action_manifest_path);
 
-	if (!overlay_mode) {
-		vr::VRInput()->SetActionManifestPath(action_manifest_path);
-		vr::VRInput()->GetActionHandle( "/actions/demo/in/HideCubes", &m_actionHideCubes );
-		vr::VRInput()->GetActionSetHandle( "/actions/demo", &m_actionsetDemo );
-	}
+        if (!overlay_mode) {
+                vr::VRInput()->SetActionManifestPath(action_manifest_path);
+                vr::VRInput()->GetActionHandle( "/actions/demo/in/HideCubes", &m_actionHideCubes );
+                vr::VRInput()->GetActionSetHandle( "/actions/demo", &m_actionsetDemo );
+        }
 
-	return true;
+        glGenTextures(1, &screencopy_texture);
+        glBindTexture(GL_TEXTURE_2D, screencopy_texture);
+        const GLubyte white_pixel[4] = {255, 255, 255, 255};
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white_pixel);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        if (use_wlr_screencopy) {
+                if (!screencopy.init(screencopy_output, screencopy_fps)) {
+                        fprintf(stderr, "Failed to start wlr-screencopy capture for output %s\n", screencopy_output.c_str());
+                        return false;
+                }
+        }
+
+        return true;
 }
 
 
@@ -1100,12 +1131,20 @@ void CMainApplication::Shutdown()
 		{
 			glDeleteProgram( m_unSceneProgramID );
 		}
-		if ( m_unCompanionWindowProgramID )
-		{
-			glDeleteProgram( m_unCompanionWindowProgramID );
-		}
+                if ( m_unCompanionWindowProgramID )
+                {
+                        glDeleteProgram( m_unCompanionWindowProgramID );
+                }
 
-		glDeleteTextures(1, &arrow_image_texture_id);
+                glDeleteTextures(1, &arrow_image_texture_id);
+
+                if (use_wlr_screencopy) {
+                        screencopy.shutdown();
+                        if (screencopy_texture) {
+                                glDeleteTextures(1, &screencopy_texture);
+                                screencopy_texture = 0;
+                        }
+                }
 
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &leftEyeDesc.m_nRenderTextureId );
@@ -1277,65 +1316,74 @@ bool CMainApplication::HandleInput()
 	}
 
 	Uint32 time_now = SDL_GetTicks();
-	const int window_resize_timeout = 1000; /* 1.0 second */
-	if((focused_window_changed && src_window_id) || (window_resized && time_now - window_resize_time >= window_resize_timeout)) {
-		XWindowAttributes xwa;
-		if(!XGetWindowAttributes(x_display, src_window_id, &xwa)) {
-			fprintf(stderr, "Error: Invalid window id: %lud\n", src_window_id);
-		}
-		window_width = xwa.width;
-		window_height = xwa.height;
-		window_resize_time = SDL_GetTicks();
-		window_resized = false;
+        const int window_resize_timeout = 1000; /* 1.0 second */
+        if (!use_wlr_screencopy) {
+                if((focused_window_changed && src_window_id) || (window_resized && time_now - window_resize_time >= window_resize_timeout)) {
+                        XWindowAttributes xwa;
+                        if(!XGetWindowAttributes(x_display, src_window_id, &xwa)) {
+                                fprintf(stderr, "Error: Invalid window id: %lud\n", src_window_id);
+                        }
+                        window_width = xwa.width;
+                        window_height = xwa.height;
+                        window_resize_time = SDL_GetTicks();
+                        window_resized = false;
 
-		if (overlay_mode) {
-			vr::HmdVector2_t scale = {(float)window_width, (float)window_height};
-			vr::VROverlay()->SetOverlayMouseScale(overlay_handle, &scale);
+                        if (overlay_mode) {
+                                vr::HmdVector2_t scale = {(float)window_width, (float)window_height};
+                                vr::VROverlay()->SetOverlayMouseScale(overlay_handle, &scale);
 
-			UpdateOverlayTitle();
-			UpdateOverlayIcon();
-		}
+                                UpdateOverlayTitle();
+                                UpdateOverlayIcon();
+                        }
 
-		if(focused_window_changed) {
-			XSelectInput(x_display, src_window_id, StructureNotifyMask|VisibilityChangeMask|KeyPressMask|KeyReleaseMask);
-			XFixesSelectCursorInput(x_display, src_window_id, XFixesDisplayCursorNotifyMask);
-		}
+                        if(focused_window_changed) {
+                                XSelectInput(x_display, src_window_id, StructureNotifyMask|VisibilityChangeMask|KeyPressMask|KeyReleaseMask);
+                                XFixesSelectCursorInput(x_display, src_window_id, XFixesDisplayCursorNotifyMask);
+                        }
 
-		focused_window_changed = false;
-		window_resized = false;
-		window_texture_deinit(&window_texture);
-		if(window_texture_init(&window_texture, x_display, src_window_id) != 0) {
-			fprintf(stderr, "Failed to init texture\n");
-			//return false;
-		}
-		glBindTexture(GL_TEXTURE_2D, window_texture_get_opengl_texture_id(&window_texture));
-		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &pixmap_texture_width);
-		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &pixmap_texture_height);
-		if(pixmap_texture_width == 0)
-			pixmap_texture_width = 1;
-		if(pixmap_texture_height == 0)
-			pixmap_texture_height = 1;
+                        focused_window_changed = false;
+                        window_resized = false;
+                        window_texture_deinit(&window_texture);
+                        if(window_texture_init(&window_texture, x_display, src_window_id) != 0) {
+                                fprintf(stderr, "Failed to init texture\n");
+                                //return false;
+                        }
+                        glBindTexture(GL_TEXTURE_2D, window_texture_get_opengl_texture_id(&window_texture));
+                        glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &pixmap_texture_width);
+                        glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &pixmap_texture_height);
+                        if(pixmap_texture_width == 0)
+                                pixmap_texture_width = 1;
+                        if(pixmap_texture_height == 0)
+                                pixmap_texture_height = 1;
 
-		if (overlay_mode) {
-			if (overlay_buffers) {
-				delete overlay_buffers;
-				overlay_buffers = nullptr;
-			}
-			overlay_buffers = new VideoBuffers(pixmap_texture_width, pixmap_texture_height);
-		}
-		glBindTexture(GL_TEXTURE_2D, 0);
-		SetupScene();
-	} else if(!window_resized && zoom_resize) {
-		SetupScene();
-	}
+                        if (overlay_mode) {
+                                if (overlay_buffers) {
+                                        delete overlay_buffers;
+                                        overlay_buffers = nullptr;
+                                }
+                                overlay_buffers = new VideoBuffers(pixmap_texture_width, pixmap_texture_height);
+                        }
+                        glBindTexture(GL_TEXTURE_2D, 0);
+                        SetupScene();
+                } else if(!window_resized && zoom_resize) {
+                        SetupScene();
+                }
 
-	if(src_window_id) {
-		Window dummyW;
-		int dummyI;
-		unsigned int dummyU;
-		XQueryPointer(x_display, src_window_id, &dummyW, &dummyW,
-					&dummyI, &dummyI, &mouse_x, &mouse_y, &dummyU);
-	}
+                if(src_window_id) {
+                        Window dummyW;
+                        int dummyI;
+                        unsigned int dummyU;
+                        XQueryPointer(x_display, src_window_id, &dummyW, &dummyW,
+                                                &dummyI, &dummyI, &mouse_x, &mouse_y, &dummyU);
+                }
+        } else {
+                if (screencopy.width() > 0 && screencopy.height() > 0) {
+                        window_width = screencopy.width();
+                        window_height = screencopy.height();
+                        pixmap_texture_width = window_width;
+                        pixmap_texture_height = window_height;
+                }
+        }
 
 	// Process SteamVR events
 	vr::VREvent_t event;
@@ -1491,12 +1539,22 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderFrame()
 {
-	{
-	}
+        {
+        }
 
-	// for now as fast as possible
-	if ( m_pHMD )
-	{
+        if (use_wlr_screencopy) {
+                screencopy.upload_to_texture(screencopy_texture);
+                if (screencopy.width() > 0 && screencopy.height() > 0) {
+                        window_width = screencopy.width();
+                        window_height = screencopy.height();
+                        pixmap_texture_width = window_width;
+                        pixmap_texture_height = window_height;
+                }
+        }
+
+        // for now as fast as possible
+        if ( m_pHMD )
+        {
 		if (overlay_mode) {
 			RenderOverlay();
 		}
@@ -2400,9 +2458,10 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 		}
 	}
 	else
-	{
-		glBindTexture(GL_TEXTURE_2D, window_texture_get_opengl_texture_id(&window_texture));
-	}
+        {
+                GLuint source_texture = use_wlr_screencopy ? screencopy_texture : window_texture_get_opengl_texture_id(&window_texture);
+                glBindTexture(GL_TEXTURE_2D, source_texture);
+        }
 	glUniform2fv(m_nCursorLocation, 1, &m[0]);
 	glActiveTexture(GL_TEXTURE1);
 	glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
@@ -2461,7 +2520,7 @@ void CMainApplication::RenderOverlay() {
 
 		overlay_buffers->swap_buffer();
 
-		GLuint ref_texture = window_texture_get_opengl_texture_id(&window_texture);
+                GLuint ref_texture = use_wlr_screencopy ? screencopy_texture : window_texture_get_opengl_texture_id(&window_texture);
 		texture_id = overlay_buffers->get_showTextureId();
 
 		glActiveTexture(GL_TEXTURE0);
