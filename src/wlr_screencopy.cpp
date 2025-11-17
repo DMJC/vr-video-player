@@ -80,6 +80,7 @@ bool WlrScreencopy::has_frame() const { return frame_available; }
 void WlrScreencopy::upload_to_texture(GLuint texture_id) {
     std::vector<uint8_t> copy;
     int w = 0, h = 0;
+    int stride = 0;
     {
         std::lock_guard<std::mutex> lock(frame_mutex);
         if (!frame_available)
@@ -87,12 +88,19 @@ void WlrScreencopy::upload_to_texture(GLuint texture_id) {
         copy = frame_data;
         w = frame_width;
         h = frame_height;
+        stride = frame_stride;
         frame_available = false;
     }
+    if (w <= 0 || h <= 0 || stride <= 0)
+        return;
+
     glBindTexture(GL_TEXTURE_2D, texture_id);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / 4);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_BGRA, GL_UNSIGNED_BYTE, copy.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 }
 
 bool WlrScreencopy::setup_wayland() {
@@ -110,6 +118,17 @@ bool WlrScreencopy::setup_wayland() {
     }
 
     // Ensure target output exists
+    if (!target_output.output) {
+        // fall back to the first enumerated output if the requested
+        // name was not found.
+        for (const auto &entry : output_map) {
+            if (entry.second) {
+                target_output.output = entry.second;
+                break;
+            }
+        }
+    }
+
     if (!target_output.output) {
         return false;
     }
@@ -222,6 +241,7 @@ void WlrScreencopy::handle_ready(uint32_t, uint32_t, uint32_t) {
         frame_data.assign(static_cast<uint8_t *>(buffer.data), static_cast<uint8_t *>(buffer.data) + size);
         frame_width = buffer.width;
         frame_height = buffer.height;
+        frame_stride = buffer.stride;
         frame_available = true;
     }
     pending_frame = false;
@@ -263,8 +283,7 @@ void WlrScreencopy::registry_global(void *data, wl_registry *registry, uint32_t 
             return;
         zxdg_output_v1 *xdg_output = zxdg_output_manager_v1_get_xdg_output(self->xdg_output_manager, output);
         zxdg_output_v1_add_listener(xdg_output, &xdg_output_listener, self);
-        if (!self->target_output.output)
-            self->target_output.output = output;
+        self->output_map[xdg_output] = output;
     }
 }
 
@@ -272,18 +291,24 @@ void WlrScreencopy::registry_global_remove(void *, wl_registry *, uint32_t) {}
 
 void WlrScreencopy::xdg_output_name(void *data, zxdg_output_v1 *output, const char *name) {
     auto *self = static_cast<WlrScreencopy *>(data);
-    if (self->target_output.xdg_output == nullptr) {
+    wl_output *wl_out = nullptr;
+    auto it = self->output_map.find(output);
+    if (it != self->output_map.end()) {
+        wl_out = it->second;
+    }
+
+    if (self->desired_output_name == name) {
+        self->target_output.output = wl_out;
+        self->target_output.xdg_output = output;
+    } else if (!self->target_output.output) {
+        // default to the first enumerated output until a matching
+        // one is found.
+        self->target_output.output = wl_out;
         self->target_output.xdg_output = output;
     }
+
     if (self->target_output.xdg_output == output) {
         self->target_output.name = name;
-        if (self->desired_output_name == name) {
-            // keep this output
-        }
-    }
-    if (self->desired_output_name == name) {
-        // ensure we track matching output
-        self->target_output.xdg_output = output;
     }
 }
 
@@ -301,10 +326,6 @@ void WlrScreencopy::xdg_output_done(void *data, zxdg_output_v1 *output) {
     auto *self = static_cast<WlrScreencopy *>(data);
     if (self->target_output.xdg_output != output)
         return;
-    if (self->target_output.name != self->desired_output_name) {
-        // not the one we want
-        self->target_output.output = nullptr;
-    }
 }
 
 void WlrScreencopy::xdg_output_description(void *, zxdg_output_v1 *, const char *) {}

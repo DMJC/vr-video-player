@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <stdint.h>
 #include <chrono>
+#include <unordered_map>
 
 #include "../include/wlr-screencopy-unstable-v1-client-protocol.h"
 #include "../include/xdg-output-unstable-v1-client-protocol.h"
@@ -94,7 +95,10 @@ private:
     bool frame_available = false;
     int frame_width = 0;
     int frame_height = 0;
+    int frame_stride = 0;
 
     double frame_interval_ms = 1000.0 / 90.0;
+
+    std::unordered_map<zxdg_output_v1 *, wl_output *> output_map;
 };
 
