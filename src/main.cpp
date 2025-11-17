@@ -493,7 +493,7 @@ void dprintf( const char *fmt, ... )
 }
 
 static void usage() {
-        fprintf(stderr, "usage: vr-video-player [--flat|--plane] [--left-right|--right-left] [--stretch|--no-stretch] [--zoom zoom-level] [--cursor-scale scale] [--cursor-wrap|--no-cursor-wrap] [--follow-focused|<window_id>] [--free-camera] [--no-free-camera] [--reduce-flicker] [--overlay] [--overlay-key <key>] [--overlay-mouse|--no-overlay-mouse] [--overlay-width <width>]\n");
+        fprintf(stderr, "usage: vr-video-player [--flat|--plane] [--left-right|--right-left] [--stretch|--no-stretch] [--zoom zoom-level] [--cursor-scale scale] [--cursor-wrap|--no-cursor-wrap] [--free-camera] [--no-free-camera] [--reduce-flicker] [--overlay] [--overlay-key <key>] [--overlay-mouse|--no-overlay-mouse] [--overlay-width <width>] [--fps-90|--fps-120] [--output <name>]\n");
     fprintf(stderr, "\n");
         fprintf(stderr, "OPTIONS\n");
     fprintf(stderr, "  --left-right              This option is used together with --flat, to specify if the left side of the window is meant to be viewed with the left eye and the right side is meant to be viewed by the right eye. This is the default value\n");
@@ -508,22 +508,22 @@ static void usage() {
         fprintf(stderr, "  --reduce-flicker          A hack to reduce flickering in low resolution text when the headset is not moving by moving the window around quickly by a few pixels\n");
         fprintf(stderr, "  --free-camera             If this option is set, then the camera wont follow your position.\n");
         fprintf(stderr, "  --no-free-camera          If this option is set, then the camera will follow your position.\n");
-    fprintf(stderr, "  --follow-focused          If this option is set, then the selected window will be the focused window. vr-video-player will automatically update when the focused window changes. Either this option or window_id should be used\n");
         fprintf(stderr, "  --overlay                 Run as an OpenVR overlay rather than a standalone application.\n");
         fprintf(stderr, "  --overlay-key <key>       Name used to identify the OpenVR overlay. Defaults to \"vr-video-player\".\n");
         fprintf(stderr, "  --overlay-mouse           Enable the translation of VR events into mouse events when running as an overlay. This is the default value.\n");
         fprintf(stderr, "  --no-overlay-mouse        Disable the translation of VR events into mouse events when running as an overlay.\n");
         fprintf(stderr, "  --overlay-width <width>   Overlay width in meters. Defaults to 2.5.\n");
-    fprintf(stderr, "  window_id                 The X11 window id of the window to view in vr. Either this option or --follow-focused should be used\n");
+        fprintf(stderr, "  --fps-90                  Capture at 90fps using wlr-screencopy.\n");
+        fprintf(stderr, "  --fps-120                 Capture at 120fps using wlr-screencopy.\n");
+        fprintf(stderr, "  --output <name>           Wayland output name to capture with wlr-screencopy. Defaults to DP-3.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "EXAMPLES\n");
-    fprintf(stderr, "  vr-video-player 1830423\n");
-    fprintf(stderr, "  vr-video-player --flat 1830423\n");
-    fprintf(stderr, "  vr-video-player --flat --right-left 1830423\n");
-    fprintf(stderr, "  vr-video-player --plane --zoom 2.0 1830423\n");
-    fprintf(stderr, "  vr-video-player --flat $(xdotool selectwindow)\n");
+    fprintf(stderr, "  vr-video-player\n");
+    fprintf(stderr, "  vr-video-player --flat\n");
+    fprintf(stderr, "  vr-video-player --flat --right-left\n");
+    fprintf(stderr, "  vr-video-player --plane --zoom 2.0\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "Note: All options except window_id are optional\n");
+    fprintf(stderr, "Note: All options are optional; wlr-screencopy capture is always enabled\n");
         exit(1);
 }
 
@@ -578,9 +578,7 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
         bool cursor_wrap_set = false;
         bool free_camera_set = false;
 
-        use_wlr_screencopy = true;
-
-	memset(&window_texture, 0, sizeof(window_texture));
+        memset(&window_texture, 0, sizeof(window_texture));
 
         for(int i = 1; i < argc; ++i) {
         if(strcmp(argv[i], "--flat") == 0) {
@@ -673,21 +671,9 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
                         fprintf(stderr, "Invalid flag: %s\n", argv[i]);
                         usage();
                 } else {
-                        if(follow_focused) {
-                                fprintf(stderr, "Error: --follow-focused option can't be used together with the window_id option\n");
-                                exit(1);
-                        }
-                        if (strncmp(argv[i], "window:", 7) == 0) {
-                                argv[i] += 7; // "window:".length
-                        }
-                        src_window_id = strtol(argv[i], nullptr, 0);
-                        use_wlr_screencopy = false;
+                        fprintf(stderr, "Invalid positional argument: %s\n", argv[i]);
+                        usage();
                 }
-        }
-
-        if(src_window_id == None && !follow_focused && !use_wlr_screencopy) {
-                fprintf(stderr, "Missing required window_id or --follow-focused option\n");
-                usage();
         }
 
         if(!free_camera_set) {
