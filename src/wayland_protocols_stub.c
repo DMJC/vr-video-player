@@ -4,9 +4,9 @@
 #include "../include/xdg-output-unstable-v1-client-protocol.h"
 
 static const struct wl_message zwlr_screencopy_manager_v1_requests[] = {
-    {"destroy", "", NULL},
     {"capture_output", "nuo", (const struct wl_interface * const[]){&zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface}},
-    {"capture_output_region", "nuoiii", (const struct wl_interface * const[]){&zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface, NULL, NULL, NULL}},
+    {"capture_output_region", "nuoiiii", (const struct wl_interface * const[]){&zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface, NULL, NULL, NULL, NULL}},
+    {"destroy", "", NULL},
 };
 
 const struct wl_interface zwlr_screencopy_manager_v1_interface = {

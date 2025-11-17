@@ -16,9 +16,9 @@ struct wl_buffer;
 extern const struct wl_interface zwlr_screencopy_manager_v1_interface;
 extern const struct wl_interface zwlr_screencopy_frame_v1_interface;
 
-#define ZWLR_SCREENCOPY_MANAGER_V1_DESTROY 0
-#define ZWLR_SCREENCOPY_MANAGER_V1_CAPTURE_OUTPUT 1
-#define ZWLR_SCREENCOPY_MANAGER_V1_CAPTURE_OUTPUT_REGION 2
+#define ZWLR_SCREENCOPY_MANAGER_V1_CAPTURE_OUTPUT 0
+#define ZWLR_SCREENCOPY_MANAGER_V1_CAPTURE_OUTPUT_REGION 1
+#define ZWLR_SCREENCOPY_MANAGER_V1_DESTROY 2
 
 #define ZWLR_SCREENCOPY_FRAME_V1_COPY 0
 #define ZWLR_SCREENCOPY_FRAME_V1_DESTROY 1
@@ -39,6 +39,11 @@ struct zwlr_screencopy_frame_v1_listener {
 static inline struct zwlr_screencopy_frame_v1 *
 zwlr_screencopy_manager_v1_capture_output(struct zwlr_screencopy_manager_v1 *manager, uint32_t overlay_cursor, struct wl_output *output) {
     return (struct zwlr_screencopy_frame_v1 *) wl_proxy_marshal_constructor((struct wl_proxy *) manager, ZWLR_SCREENCOPY_MANAGER_V1_CAPTURE_OUTPUT, &zwlr_screencopy_frame_v1_interface, NULL, overlay_cursor, output);
+}
+
+static inline struct zwlr_screencopy_frame_v1 *
+zwlr_screencopy_manager_v1_capture_output_region(struct zwlr_screencopy_manager_v1 *manager, uint32_t overlay_cursor, struct wl_output *output, int32_t x, int32_t y, int32_t width, int32_t height) {
+    return (struct zwlr_screencopy_frame_v1 *) wl_proxy_marshal_constructor((struct wl_proxy *) manager, ZWLR_SCREENCOPY_MANAGER_V1_CAPTURE_OUTPUT_REGION, &zwlr_screencopy_frame_v1_interface, NULL, overlay_cursor, output, x, y, width, height);
 }
 
 static inline void zwlr_screencopy_frame_v1_add_listener(struct zwlr_screencopy_frame_v1 *frame, const struct zwlr_screencopy_frame_v1_listener *listener, void *data) {
