@@ -33,7 +33,6 @@
 
 #include <GL/glew.h>
 #include "../include/window_texture.h"
-#include "../include/mpv.hpp"
 #include "../include/config.hpp"
 
 #include <SDL.h>
@@ -83,17 +82,14 @@ namespace vr
 static bool g_bPrintf = true;
 
 enum class ViewMode {
-	LEFT_RIGHT,
-	RIGHT_LEFT,
-	PLANE,
-	SPHERE360
+        LEFT_RIGHT,
+        RIGHT_LEFT,
+        PLANE
 };
 
 enum class ProjectionMode {
-	SPHERE,
-	FLAT,
-	CYLINDER, /* aka plane */
-	SPHERE360
+        FLAT,
+        CYLINDER /* aka plane */
 };
 #define BUFFER_DEPTH 2
 class VideoBuffers
@@ -255,8 +251,6 @@ private: // SDL bookkeeping
 	uint32_t m_nCompanionWindowHeight;
 
 	SDL_GLContext m_pContext;
-	SDL_GLContext m_pMpvContext;
-
 private: // OpenGL bookkeeping
 	int m_iTrackedControllerCount;
 	int m_iTrackedControllerCount_Last;
@@ -334,19 +328,13 @@ private: // OpenGL bookkeeping
 		GLuint m_nResolveTextureId;
 		GLuint m_nResolveFramebufferId;
 	};
-	FramebufferDesc leftEyeDesc;
-	FramebufferDesc rightEyeDesc;
+        FramebufferDesc leftEyeDesc;
+        FramebufferDesc rightEyeDesc;
 
-	//FramebufferDesc mpvDesc;
-	VideoBuffers* mpvBuffers = nullptr;
+        bool CreateFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc );
 
-	bool CreateFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc );
-	void set_current_context(SDL_GLContext context);
-	bool take_render_update();
-	void set_render_update();
-	
-	uint32_t m_nRenderWidth;
-	uint32_t m_nRenderHeight;
+        uint32_t m_nRenderWidth;
+        uint32_t m_nRenderHeight;
 
 	vr::VRActionHandle_t m_actionHideCubes = vr::k_ulInvalidActionHandle;
 	vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;
@@ -359,24 +347,9 @@ private: // X compositor
 	bool follow_focused = false;
 	bool focused_window_changed = true;
 	bool focused_window_set = false;
-	const char *mpv_file = nullptr;
-	const char *mpv_profile = "gpu-hq";
-	Mpv mpv;
-	std::mutex mpv_render_update_mutex;
-	std::condition_variable mpv_render_update_condition;
-	bool mpv_render_update = false;
-	int64_t mpv_video_width = 0;
-	int64_t mpv_video_height = 0;
-	bool mpv_video_loaded = false;
-	bool mpv_loaded_in_thread = false;
-	bool running = true;
-	std::mutex context_mutex;
-
-	std::thread mpv_thread;
-
-	int mouse_x = 0;
-	int mouse_y = 0;
-	int window_width = 1;
+        int mouse_x = 0;
+        int mouse_y = 0;
+        int window_width = 1;
 	int window_height = 1;
 	Uint32 window_resize_time;
 	bool window_resized = false;
@@ -385,21 +358,20 @@ private: // X compositor
 
 	int x_fixes_event_base;
 	int x_fixes_error_base;
-	int prev_visibility_state = VisibilityFullyObscured;
+        int prev_visibility_state = VisibilityFullyObscured;
 
 	GLint pixmap_texture_width = 1;
 	GLint pixmap_texture_height = 1;
 
-	ProjectionMode projection_mode = ProjectionMode::SPHERE;
-	double zoom = 0.0;
-	float cursor_scale = 2.0f;
-	ViewMode view_mode = ViewMode::LEFT_RIGHT;
-	bool stretch = true;
+        ProjectionMode projection_mode = ProjectionMode::FLAT;
+        double zoom = 0.0;
+        float cursor_scale = 2.0f;
+        ViewMode view_mode = ViewMode::LEFT_RIGHT;
+        bool stretch = true;
 	bool cursor_wrap = true;
 	bool free_camera = false;
-	bool reduce_flicker = false;
-	bool use_system_mpv_config = false;
-	double reduce_flicker_counter = 0.0;
+        bool reduce_flicker = false;
+        double reduce_flicker_counter = 0.0;
 
 	GLuint arrow_image_texture_id = 0;
 	int arrow_image_width = 1;
@@ -513,34 +485,28 @@ void dprintf( const char *fmt, ... )
 }
 
 static void usage() {
-	fprintf(stderr, "usage: vr-video-player [--sphere|--sphere360|--flat|--plane] [--left-right|--right-left] [--stretch|--no-stretch] [--zoom zoom-level] [--cursor-scale scale] [--cursor-wrap|--no-cursor-wrap] [--follow-focused|--video video|<window_id>] [--use-system-mpv-config] [--mpv-profile <profile>] [--free-camera] [--no-free-camera] [--reduce-flicker] [--overlay] [--overlay-key <key>] [--overlay-mouse|--no-overlay-mouse] [--overlay-width <width>]\n");
+        fprintf(stderr, "usage: vr-video-player [--flat|--plane] [--left-right|--right-left] [--stretch|--no-stretch] [--zoom zoom-level] [--cursor-scale scale] [--cursor-wrap|--no-cursor-wrap] [--follow-focused|<window_id>] [--free-camera] [--no-free-camera] [--reduce-flicker] [--overlay] [--overlay-key <key>] [--overlay-mouse|--no-overlay-mouse] [--overlay-width <width>]\n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "OPTIONS\n");
-    fprintf(stderr, "  --sphere                  View the window as a stereoscopic 180 degrees screen (half sphere). The view will be attached to your head in vr. This is recommended for 180 degrees videos. This is the default value\n");
-	fprintf(stderr, "  --sphere360               View the window as an equirectangular cube map. This is what is mostly used on youtube, where the video is split into top and bottom as a cubemap. The view will be attached to your head in vr\n");
-	fprintf(stderr, "  --flat                    View the window as a stereoscopic flat screen. This is recommended for stereoscopic videos and games\n");
+        fprintf(stderr, "OPTIONS\n");
     fprintf(stderr, "  --left-right              This option is used together with --flat, to specify if the left side of the window is meant to be viewed with the left eye and the right side is meant to be viewed by the right eye. This is the default value\n");
     fprintf(stderr, "  --right-left              This option is used together with --flat, to specify if the left side of the window is meant to be viewed with the right eye and the right side is meant to be viewed by the left eye\n");
     fprintf(stderr, "  --plane                   View the window as a slightly curved screen. This is recommended for non-stereoscopic content\n");
     fprintf(stderr, "  --stretch                 This option is used together with --flat, To specify if the size of both sides of the window should be combined and stretch to that size when viewed in vr. This is the default value\n");
     fprintf(stderr, "  --no-stretch              This option is used together with --flat, To specify if the size of one side of the window should be the size of the whole window when viewed in vr. This is the option you want if the window looks too wide\n");
-    fprintf(stderr, "  --zoom <zoom>             Change the distance to the window. This should be a positive value. In flat and plane modes, this is the distance to the window when the window is reset (with W key or controller trigger button). The default value is 0 for all modes except sphere mode, where the default value is 1. This value is unused for sphere360 mode\n");
-    fprintf(stderr, "  --cursor-scale <scale>    Change the size of the cursor. This should be a positive value. If set to 0, then the cursor is hidden. The default value is 1 for all modes except sphere mode, where the default value is 0. The cursor is always hidden in sphere360 mode\n");
-    fprintf(stderr, "  --cursor-wrap             If this option is set, then the cursor position in the vr view will wrap around when it reached the center of the window (i.e when it reaches the edge of one side of the stereoscopic view). This option is only valid for stereoscopic view (flat and sphere modes)\n");
+    fprintf(stderr, "  --zoom <zoom>             Change the distance to the window. This should be a positive value. In flat and plane modes, this is the distance to the window when the window is reset (with W key or controller trigger button).\n");
+    fprintf(stderr, "  --cursor-scale <scale>    Change the size of the cursor. This should be a positive value. If set to 0, then the cursor is hidden.\n");
+    fprintf(stderr, "  --cursor-wrap             If this option is set, then the cursor position in the vr view will wrap around when it reached the center of the window (i.e when it reaches the edge of one side of the stereoscopic view). This option is only valid for stereoscopic view (flat modes)\n");
     fprintf(stderr, "  --no-cursor-wrap          If this option is set, then the cursor position in the vr view will match the the real cursor position inside the window\n");
-	fprintf(stderr, "  --reduce-flicker          A hack to reduce flickering in low resolution text when the headset is not moving by moving the window around quickly by a few pixels\n");
-	fprintf(stderr, "  --free-camera             If this option is set, then the camera wont follow your position. This option is enabled unless --sphere or --sphere360 options are used\n");
-	fprintf(stderr, "  --no-free-camera          If this option is set, then the camera will follow your position. This option is enabled when --sphere or --sphere360 options are used\n");
-    fprintf(stderr, "  --follow-focused          If this option is set, then the selected window will be the focused window. vr-video-player will automatically update when the focused window changes. Either this option, --video or window_id should be used\n");
-	fprintf(stderr, "  --video <video>           Select the video to play (using mpv). Either this option, --follow-focused or window_id should be used\n");
-	fprintf(stderr, "  --use-system-mpv-config   Use system (~/.config/mpv/mpv.conf) mpv config. Disabled by default\n");
-	fprintf(stderr, "  --mpv-profile <profile>   Which mpv profile to use. Only applicable when using --video option. Optional, defaults to \"gpu-hq\"\n");
-	fprintf(stderr, "  --overlay                 Run as an OpenVR overlay rather than a standalone application.\n");
-	fprintf(stderr, "  --overlay-key <key>       Name used to identify the OpenVR overlay. Defaults to \"vr-video-player\".\n");
-	fprintf(stderr, "  --overlay-mouse           Enable the translation of VR events into mouse events when running as an overlay. This is the default value.\n");
-	fprintf(stderr, "  --no-overlay-mouse        Disable the translation of VR events into mouse events when running as an overlay.\n");
-	fprintf(stderr, "  --overlay-width <width>   Overlay width in meters. Defaults to 2.5.\n");
-    fprintf(stderr, "  window_id                 The X11 window id of the window to view in vr. Either this option, --follow-focused or --video should be used\n");
+        fprintf(stderr, "  --reduce-flicker          A hack to reduce flickering in low resolution text when the headset is not moving by moving the window around quickly by a few pixels\n");
+        fprintf(stderr, "  --free-camera             If this option is set, then the camera wont follow your position.\n");
+        fprintf(stderr, "  --no-free-camera          If this option is set, then the camera will follow your position.\n");
+    fprintf(stderr, "  --follow-focused          If this option is set, then the selected window will be the focused window. vr-video-player will automatically update when the focused window changes. Either this option or window_id should be used\n");
+        fprintf(stderr, "  --overlay                 Run as an OpenVR overlay rather than a standalone application.\n");
+        fprintf(stderr, "  --overlay-key <key>       Name used to identify the OpenVR overlay. Defaults to \"vr-video-player\".\n");
+        fprintf(stderr, "  --overlay-mouse           Enable the translation of VR events into mouse events when running as an overlay. This is the default value.\n");
+        fprintf(stderr, "  --no-overlay-mouse        Disable the translation of VR events into mouse events when running as an overlay.\n");
+        fprintf(stderr, "  --overlay-width <width>   Overlay width in meters. Defaults to 2.5.\n");
+    fprintf(stderr, "  window_id                 The X11 window id of the window to view in vr. Either this option or --follow-focused should be used\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "EXAMPLES\n");
     fprintf(stderr, "  vr-video-player 1830423\n");
@@ -548,39 +514,26 @@ static void usage() {
     fprintf(stderr, "  vr-video-player --flat --right-left 1830423\n");
     fprintf(stderr, "  vr-video-player --plane --zoom 2.0 1830423\n");
     fprintf(stderr, "  vr-video-player --flat $(xdotool selectwindow)\n");
-	fprintf(stderr, "  vr-video-player --sphere --video $HOME/Videos/cool-vr-video.mp4\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Note: All options except window_id are optional\n");
-	exit(1);
+        exit(1);
 }
 
 static void get_config_values(const Config &config, ProjectionMode projection_mode, glm::vec3 &pos, glm::quat &rot, float &zoom) {
-	switch(projection_mode) {
-		case ProjectionMode::SPHERE: {
-			pos = config.sphere.position;
-			rot = config.sphere.rotation;
-			zoom = config.sphere.zoom;
-			break;
-		}
-		case ProjectionMode::FLAT: {
-			pos = config.flat.position;
-			rot = config.flat.rotation;
-			zoom = config.flat.zoom;
-			break;
-		}
-		case ProjectionMode::CYLINDER: {
-			pos = config.plane.position;
-			rot = config.plane.rotation;
-			zoom = config.plane.zoom;
-			break;
-		}
-		case ProjectionMode::SPHERE360: {
-			pos = config.sphere360.position;
-			rot = config.sphere360.rotation;
-			zoom = config.sphere360.zoom;
-			break;
-		}
-	}
+        switch(projection_mode) {
+                case ProjectionMode::FLAT: {
+                        pos = config.flat.position;
+                        rot = config.flat.rotation;
+                        zoom = config.flat.zoom;
+                        break;
+                }
+                case ProjectionMode::CYLINDER: {
+                        pos = config.plane.position;
+                        rot = config.plane.rotation;
+                        zoom = config.plane.zoom;
+                        break;
+                }
+        }
 }
 
 //-----------------------------------------------------------------------------
@@ -588,8 +541,7 @@ static void get_config_values(const Config &config, ProjectionMode projection_mo
 //-----------------------------------------------------------------------------
 CMainApplication::CMainApplication( int argc, char *argv[] )
 	: m_pCompanionWindow(NULL)
-	, m_pContext(NULL)
-	, m_pMpvContext(NULL)
+        , m_pContext(NULL)
 	, m_nCompanionWindowWidth( 800 )
 	, m_nCompanionWindowHeight( 600 )
 	, m_unSceneProgramID( 0 )
@@ -620,18 +572,11 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 
 	memset(&window_texture, 0, sizeof(window_texture));
 
-	for(int i = 1; i < argc; ++i) {
-        if(strcmp(argv[i], "--sphere") == 0) {
-			if(projection_arg) {
-				fprintf(stderr, "Error: --sphere option can't be used together with the %s option\n", projection_arg);
-				exit(1);
-			}
-			projection_mode = ProjectionMode::SPHERE;
-			projection_arg = argv[i];
-		} else if(strcmp(argv[i], "--flat") == 0) {
-			if(projection_arg) {
-				fprintf(stderr, "Error: --flat option can't be used together with the %s option\n", projection_arg);
-				exit(1);
+        for(int i = 1; i < argc; ++i) {
+        if(strcmp(argv[i], "--flat") == 0) {
+                        if(projection_arg) {
+                                fprintf(stderr, "Error: --flat option can't be used together with the %s option\n", projection_arg);
+                                exit(1);
 			}
 			projection_mode = ProjectionMode::FLAT;
 			projection_arg = argv[i];
@@ -657,35 +602,22 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 			}
 			view_mode = ViewMode::RIGHT_LEFT;
 			view_mode_arg = argv[i];
-		} else if(strcmp(argv[i], "--plane") == 0) {
-			if(projection_arg) {
-				fprintf(stderr, "Error: --plane option can't be used together with the %s option\n", projection_arg);
-				exit(1);
+                } else if(strcmp(argv[i], "--plane") == 0) {
+                        if(projection_arg) {
+                                fprintf(stderr, "Error: --plane option can't be used together with the %s option\n", projection_arg);
+                                exit(1);
 			}
 			if(view_mode_arg) {
 				fprintf(stderr, "Error: --plane option can't be used together with the %s option\n", view_mode_arg);
 				exit(1);
 			}
-			view_mode = ViewMode::PLANE;
-			projection_mode = ProjectionMode::CYLINDER;
-			projection_arg = argv[i];
-			view_mode_arg = argv[i];
-		} else if(strcmp(argv[i], "--sphere360") == 0) {
-			if(projection_arg) {
-				fprintf(stderr, "Error: --sphere360 option can't be used together with the %s option\n", projection_arg);
-				exit(1);
-			}
-			if(view_mode_arg) {
-				fprintf(stderr, "Error: --sphere360 option can't be used together with the %s option\n", view_mode_arg);
-				exit(1);
-			}
-			view_mode = ViewMode::SPHERE360;
-			projection_mode = ProjectionMode::SPHERE360;
-			projection_arg = argv[i];
-			view_mode_arg = argv[i];
-		} else if(strcmp(argv[i], "--stretch") == 0) {
-			stretch = true;
-		} else if(strcmp(argv[i], "--no-stretch") == 0) {
+                        view_mode = ViewMode::PLANE;
+                        projection_mode = ProjectionMode::CYLINDER;
+                        projection_arg = argv[i];
+                        view_mode_arg = argv[i];
+                } else if(strcmp(argv[i], "--stretch") == 0) {
+                        stretch = true;
+                } else if(strcmp(argv[i], "--no-stretch") == 0) {
 			stretch = false;
 		} else if(strcmp(argv[i], "--cursor-wrap") == 0) {
 			cursor_wrap = true;
@@ -693,35 +625,15 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 		} else if(strcmp(argv[i], "--no-cursor-wrap") == 0) {
 			cursor_wrap = false;
 			cursor_wrap_set = true;
-		} else if(strcmp(argv[i], "--follow-focused") == 0) {
-			if(src_window_id) {
-				fprintf(stderr, "Error: window_id option can't be used together with the --follow-focused option\n");
-				exit(1);
-			}
-			if(mpv_file) {
-				fprintf(stderr, "Error: --video option can't be used together with the --follow-focused option\n");
-				exit(1);
-			}
-			follow_focused = true;
-		} else if(strcmp(argv[i], "--video") == 0 && i < argc - 1) {
-			if(src_window_id) {
-				fprintf(stderr, "Error: --follow-focused option can't be used together with the --video option\n");
-				exit(1);
-			}
-			if(follow_focused) {
-				fprintf(stderr, "Error: window_id option can't be used together with the --video option\n");
-				exit(1);
-			}
-			mpv_file = argv[i + 1];
-			++i;
-		} else if(strcmp(argv[i], "--use-system-mpv-config") == 0) {
-			use_system_mpv_config = true;
-		} else if(strcmp(argv[i], "--mpv-profile") == 0 && i < argc - 1) {
-			mpv_profile = argv[i + 1];
-			++i;
-		} else if(strcmp(argv[i], "--free-camera") == 0) {
-			free_camera = true;
-			free_camera_set = true;
+                } else if(strcmp(argv[i], "--follow-focused") == 0) {
+                        if(src_window_id) {
+                                fprintf(stderr, "Error: window_id option can't be used together with the --follow-focused option\n");
+                                exit(1);
+                        }
+                        follow_focused = true;
+                } else if(strcmp(argv[i], "--free-camera") == 0) {
+                        free_camera = true;
+                        free_camera_set = true;
 		} else if(strcmp(argv[i], "--no-free-camera") == 0) {
 			free_camera = false;
 			free_camera_set = true;
@@ -740,54 +652,41 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 		} else if(strcmp(argv[i], "--no-overlay-mouse") == 0) {
 			overlay_mouse_controls = false;
 		}
-		else if(argv[i][0] == '-') {
-			fprintf(stderr, "Invalid flag: %s\n", argv[i]);
-			usage();
-		} else {
-			if(follow_focused) {
-				fprintf(stderr, "Error: --follow-focused option can't be used together with the window_id option\n");
-				exit(1);
-			}
-			if(mpv_file) {
-				fprintf(stderr, "Error: --video option can't be used together with the window_id option\n");
-				exit(1);
-			}
-			if (strncmp(argv[i], "window:", 7) == 0) {
-				argv[i] += 7; // "window:".length
-			}
-			src_window_id = strtol(argv[i], nullptr, 0);
-		}
-	}
+                else if(argv[i][0] == '-') {
+                        fprintf(stderr, "Invalid flag: %s\n", argv[i]);
+                        usage();
+                } else {
+                        if(follow_focused) {
+                                fprintf(stderr, "Error: --follow-focused option can't be used together with the window_id option\n");
+                                exit(1);
+                        }
+                        if (strncmp(argv[i], "window:", 7) == 0) {
+                                argv[i] += 7; // "window:".length
+                        }
+                        src_window_id = strtol(argv[i], nullptr, 0);
+                }
+        }
 
-	if(src_window_id == None && !follow_focused && !mpv_file) {
-		fprintf(stderr, "Missing required window_id, --follow-focused or --video option\n");
-		usage();
-	}
+        if(src_window_id == None && !follow_focused) {
+                fprintf(stderr, "Missing required window_id or --follow-focused option\n");
+                usage();
+        }
 
-	if(!free_camera_set) {
-		if(overlay_mode || projection_mode == ProjectionMode::SPHERE || projection_mode == ProjectionMode::SPHERE360) {
-			free_camera = false;
-		} else {
-			free_camera = true;
-		}
-	}
+        if(!free_camera_set) {
+                free_camera = !overlay_mode;
+        }
 
-	if(!zoom_set && projection_mode != ProjectionMode::SPHERE) {
-		zoom = 1.0;
-	}
+        if(!zoom_set) {
+                zoom = 1.0;
+        }
 
-	if(cursor_scale < 0.001f || (!cursor_scale_set && projection_mode == ProjectionMode::SPHERE)) {
-		cursor_scale = 0.001f;
-	}
+        if(cursor_scale < 0.001f) {
+                cursor_scale = 0.001f;
+        }
 
-	if(!cursor_wrap_set && projection_mode == ProjectionMode::FLAT) {
-		cursor_wrap = false;
-	}
-
-	if(projection_mode == ProjectionMode::SPHERE360) {
-		zoom = 0.0f;
-		cursor_scale = 0.001f;
-	}
+        if(!cursor_wrap_set && projection_mode == ProjectionMode::FLAT) {
+                cursor_wrap = false;
+        }
 
 	// other initialization tasks are done in BInit
 	memset(m_rDevClassChar, 0, sizeof(m_rDevClassChar));
@@ -958,10 +857,7 @@ bool CMainApplication::BInit()
 	if( m_bDebugOpenGL )
 		SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
 
-	// Needed for mpv
-	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "no");
-
-	m_pCompanionWindow = SDL_CreateWindow( "vr-video-player", nWindowPosX, nWindowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags );
+        m_pCompanionWindow = SDL_CreateWindow( "vr-video-player", nWindowPosX, nWindowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags );
 	if (m_pCompanionWindow == NULL)
 	{
 		printf( "%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError() );
@@ -975,18 +871,9 @@ bool CMainApplication::BInit()
 		return false;
 	}
 
-	if(mpv_file) {
-		m_pMpvContext = SDL_GL_CreateContext(m_pCompanionWindow);
-		if (m_pMpvContext == NULL)
-		{
-			printf( "%s - OpenGL context could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError() );
-			return false;
-		}
-	}
-
-	if(SDL_GL_MakeCurrent(m_pCompanionWindow, m_pContext) < 0) {
-		fprintf(stderr, "Failed to make opengl context current, error: %s\n", SDL_GetError());
-		return false;
+        if(SDL_GL_MakeCurrent(m_pCompanionWindow, m_pContext) < 0) {
+                fprintf(stderr, "Failed to make opengl context current, error: %s\n", SDL_GetError());
+                return false;
 	}
 
 	glewExperimental = GL_TRUE;
@@ -1038,77 +925,7 @@ bool CMainApplication::BInit()
 		return false;
 	}
 
-	if(mpv_file) {
-		mpv_thread = std::thread([&]{
-			set_current_context(m_pMpvContext);
-			if(!mpv.create(use_system_mpv_config, mpv_profile))
-				return;
-
-			mpv.load_file(mpv_file);
-			set_current_context(NULL);
-
-			while(running) {
-				
-				if(mpv_video_loaded && !mpv_loaded_in_thread) {
-					set_current_context(m_pMpvContext);
-					mpv_loaded_in_thread = true;
-					// TODO: Do not create depth buffer and extra framebuffers
-					//CreateFrameBuffer(mpv_video_width, mpv_video_height, mpvDesc);
-					mpvBuffers = new VideoBuffers(mpv_video_width, mpv_video_height);
-					set_current_context(NULL);
-				}
-
-				if(mpv_video_loaded) {
-					if(take_render_update()) {
-						if(!running)
-							break;
-
-						set_current_context(m_pMpvContext);
-						mpvBuffers->swap_buffer();
-						GLuint current_frame_buffer_id = mpvBuffers->get_renderFramebufferId();
-						
-						//glBindFramebuffer( GL_FRAMEBUFFER, mpvDesc.m_nRenderFramebufferId );
-						glBindFramebuffer( GL_FRAMEBUFFER, current_frame_buffer_id );
-						glViewport(0, 0, mpv_video_width, mpv_video_height);
-
-						glDisable(GL_DEPTH_TEST);
-
-						glBindVertexArray( m_unCompanionWindowVAO );
-						glUseProgram( m_unCompanionWindowProgramID );
-
-						//mpv.draw(mpvDesc.m_nRenderFramebufferId, mpv_video_width, mpv_video_height);
-						mpv.draw(current_frame_buffer_id, mpv_video_width, mpv_video_height);
-
-						glBindVertexArray( 0 );
-						glUseProgram( 0 );
-						glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-						
-						set_current_context(NULL);
-					}
-/*					
-					glDisable( GL_MULTISAMPLE );
-
-					glBindFramebuffer(GL_READ_FRAMEBUFFER, mpvDesc.m_nRenderFramebufferId );
-					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, mpvDesc.m_nResolveFramebufferId );
-					
-					glBlitFramebuffer( 0, 0, mpv_video_width, mpv_video_height, 0, 0, mpv_video_width, mpv_video_height, 
-						GL_COLOR_BUFFER_BIT,
-						GL_LINEAR  );
-
-					glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
-					
-
-					glEnable( GL_MULTISAMPLE );*/
-				} else {
-					usleep(1000);
-				}
-			}
-			delete mpvBuffers;
-		});
-	}
-
-	char action_manifest_path[PATH_MAX];
+        char action_manifest_path[PATH_MAX];
 	realpath("config/hellovr_actions.json", action_manifest_path);
 	if(access(action_manifest_path, F_OK) == -1) {
 		strcpy(action_manifest_path, "/usr/share/vr-video-player/hellovr_actions.json");
@@ -1219,12 +1036,12 @@ bool CMainApplication::BInitOverlay()
 		return false;
 	}
 
-	vr::VROverlay()->CreateDashboardOverlay(
-		overlay_key,
-		mpv_file ? mpv_file : "vr-video-player",
-		&overlay_handle,
-		&thumbnail_handle
-	);
+        vr::VROverlay()->CreateDashboardOverlay(
+                overlay_key,
+                overlay_key,
+                &overlay_handle,
+                &thumbnail_handle
+        );
 
 	if (overlay_mouse_controls)
 		vr::VROverlay()->SetOverlayInputMethod(overlay_handle, vr::VROverlayInputMethod_Mouse);
@@ -1239,12 +1056,10 @@ bool CMainApplication::BInitOverlay()
 	vr::VROverlay()->SetOverlayFlag(overlay_handle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
 	vr::VROverlay()->SetOverlayFlag(overlay_handle, vr::VROverlayFlags_VisibleInDashboard, true);
 
-	if (projection_mode == ProjectionMode::SPHERE360)
-		vr::VROverlay()->SetOverlayFlag(overlay_handle, vr::VROverlayFlags_Panorama, true);
-	else if (view_mode == ViewMode::LEFT_RIGHT)
-		vr::VROverlay()->SetOverlayFlag(overlay_handle, vr::VROverlayFlags_SideBySide_Parallel, true);
-	else if (view_mode == ViewMode::RIGHT_LEFT)
-		vr::VROverlay()->SetOverlayFlag(overlay_handle, vr::VROverlayFlags_SideBySide_Crossed, true);
+        if (view_mode == ViewMode::LEFT_RIGHT)
+                vr::VROverlay()->SetOverlayFlag(overlay_handle, vr::VROverlayFlags_SideBySide_Parallel, true);
+        else if (view_mode == ViewMode::RIGHT_LEFT)
+                vr::VROverlay()->SetOverlayFlag(overlay_handle, vr::VROverlayFlags_SideBySide_Crossed, true);
 
 	if (projection_mode == ProjectionMode::FLAT && stretch)
 		vr::VROverlay()->SetOverlayTexelAspect(overlay_handle, 2.0);
@@ -1272,11 +1087,7 @@ void CMainApplication::Shutdown()
 	
 	if( m_pContext )
 	{
-		if(mpv_thread.joinable())
-			mpv_thread.join();
 
-		if(mpv_file)
-			mpv.destroy();
 
 		if( m_bDebugOpenGL )
 		{
@@ -1308,11 +1119,6 @@ void CMainApplication::Shutdown()
 		glDeleteTextures( 1, &rightEyeDesc.m_nResolveTextureId );
 		glDeleteFramebuffers( 1, &rightEyeDesc.m_nResolveFramebufferId );
 	/*
-		glDeleteRenderbuffers( 1, &mpvDesc.m_nDepthBufferId );
-		glDeleteTextures( 1, &mpvDesc.m_nRenderTextureId );
-		glDeleteFramebuffers( 1, &mpvDesc.m_nRenderFramebufferId );
-		glDeleteTextures( 1, &mpvDesc.m_nResolveTextureId );
-		glDeleteFramebuffers( 1, &mpvDesc.m_nResolveFramebufferId );*/
 
 		if( m_unCompanionWindowVAO != 0 )
 		{
@@ -1345,10 +1151,7 @@ void CMainApplication::Shutdown()
 }
 
 void CMainApplication::zoom_in() {
-    if(projection_mode == ProjectionMode::SPHERE360)
-        zoom -= 1.0f;
-    else
-        zoom -= 0.01f;
+    zoom -= 0.01f;
     zoom_resize = true;
 
     std::stringstream strstr;
@@ -1361,10 +1164,7 @@ void CMainApplication::zoom_in() {
 }
 
 void CMainApplication::zoom_out() {
-    if(projection_mode == ProjectionMode::SPHERE360)
-        zoom += 1.0f;
-    else
-        zoom += 0.01f;
+    zoom += 0.01f;
     zoom_resize = true;
 
     std::stringstream strstr;
@@ -1381,77 +1181,38 @@ void CMainApplication::zoom_out() {
 //-----------------------------------------------------------------------------
 bool CMainApplication::HandleInput()
 {
-	SDL_Event sdlEvent;
-	bool bRet = false;
-    zoom_resize = false;
-	int64_t video_width = 0;
-	int64_t video_height = 0;
-	bool mpv_quit = false;
+        SDL_Event sdlEvent;
+        bool bRet = false;
+        zoom_resize = false;
 
-	while ( SDL_PollEvent( &sdlEvent ) != 0 )
-	{
-		if ( sdlEvent.type == SDL_QUIT )
-		{
-			bRet = true;
-		}
-		else if ( sdlEvent.type == SDL_KEYDOWN )
-		{
-			if( sdlEvent.key.keysym.sym == SDLK_w )
-			{
-				m_bResetRotation = true;
-			}
-			if( sdlEvent.key.keysym.sym == SDLK_ESCAPE )
-			{
-				bRet = true;
-			}
-			if( sdlEvent.key.keysym.sym == SDLK_q )
-			{
-                zoom_in();
-			}
-			if( sdlEvent.key.keysym.sym == SDLK_e )
-			{
-                zoom_out();
-			}
-			if(mpv_file && sdlEvent.key.keysym.sym == SDLK_LEFT)
-			{
-				mpv.seek(-5.0); // Seek backwards 5 seconds
-			}
-			if(mpv_file && sdlEvent.key.keysym.sym == SDLK_RIGHT)
-			{
-				mpv.seek(5.0); // Seek forwards 5 seconds
-			}
-			if(mpv_file && sdlEvent.key.keysym.sym == SDLK_SPACE)
-			{
-				mpv.toggle_pause();
-			}
-		}
+        while ( SDL_PollEvent( &sdlEvent ) != 0 )
+        {
+                if ( sdlEvent.type == SDL_QUIT )
+                {
+                        bRet = true;
+                }
+                else if ( sdlEvent.type == SDL_KEYDOWN )
+                {
+                        switch (sdlEvent.key.keysym.sym) {
+                        case SDLK_w:
+                                m_bResetRotation = true;
+                                break;
+                        case SDLK_ESCAPE:
+                                bRet = true;
+                                break;
+                        case SDLK_q:
+                                zoom_in();
+                                break;
+                        case SDLK_e:
+                                zoom_out();
+                                break;
+                        default:
+                                break;
+                        }
+                }
+        }
 
-		bool opdoot = false;
-		if(mpv_file) {
-			int error = 0;
-			mpv.on_event(sdlEvent, &opdoot, &video_width, &video_height, &mpv_quit, &error);
-			if(mpv_quit && error != 0)
-				exit_code = 2;
-		}
-
-		if(opdoot)
-			set_render_update();
-
-		if(mpv_quit)
-			bRet = true;
-
-		// TODO: Allow video resize to update texture size
-		if(video_width > 0 && video_height > 0 && video_width != mpv_video_width && video_height != mpv_video_height && !mpv_video_loaded && !mpv_loaded_in_thread) {
-			mpv_video_width = video_width;
-			mpv_video_height = video_height;
-			pixmap_texture_width = mpv_video_width;
-			pixmap_texture_height = mpv_video_height;
-			mpv_video_loaded = true;
-			SetupScene();
-		}
-	}
-
-	XEvent xev;
+        XEvent xev;
 	
     if(XCheckTypedEvent(x_display, MappingNotify, &xev)) {
 		XMappingEvent *mapping_ev = &xev.xmapping;
@@ -1624,39 +1385,28 @@ bool CMainApplication::HandleInput()
 //-----------------------------------------------------------------------------
 void CMainApplication::RunMainLoop()
 {
-	SDL_StartTextInput();
+        SDL_StartTextInput();
 
-	SDL_Joystick *controller = SDL_JoystickOpen(0);
-	if (!controller)
-		fprintf(stderr, "Could not open gamecontroller: %s\n", SDL_GetError());
+        SDL_Joystick *controller = SDL_JoystickOpen(0);
+        if (!controller)
+                fprintf(stderr, "Could not open gamecontroller: %s\n", SDL_GetError());
 
 
-	while ( !bQuit )
-	{
-		set_current_context(m_pContext);
-		bQuit = HandleInput();
+        while ( !bQuit )
+        {
+                bQuit = HandleInput();
 
 		if(bQuitSignal)
 			bQuit = true;
 
-		if(bQuit) {
-			running = false;
-			set_render_update();
-		}
+                RenderFrame();
+        }
 
-		RenderFrame();
-		set_current_context(NULL);
-	}
 
-	if(mpv_thread.joinable())
-		mpv_thread.join();
+        if (controller)
+                SDL_JoystickClose(controller);
 
-	set_current_context(m_pContext);
-
-	if (controller)
-		SDL_JoystickClose(controller);
-
-	SDL_StopTextInput();
+        SDL_StopTextInput();
 }
 
 
@@ -1712,9 +1462,6 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 		break;
 
 	case vr::VREvent_MouseButtonDown:
-		if (overlay_xdo && (src_window_id != None || mpv_file)) {
-			if (mpv_file)
-				mpv.toggle_pause();
 			else
 				xdo_mouse_down(overlay_xdo, src_window_id,
 					       event.data.mouse.button);
@@ -1722,13 +1469,9 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 		break;
 
 	case vr::VREvent_ScrollDiscrete:
-		if (overlay_xdo && (src_window_id != None || mpv_file)) {
-			if (mpv_file)
 			{
 				if (event.data.scroll.ydelta > 0)
-					mpv.seek(-5.0);
 				else if (event.data.scroll.ydelta < 0)
-					mpv.seek(5.0);
 			}
 			else
 			{
@@ -1748,9 +1491,7 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderFrame()
 {
-	if(mpvBuffers != nullptr)
 	{
-		mpvBuffers->swap_mutex.lock();
 	}
 
 	// for now as fast as possible
@@ -1799,9 +1540,7 @@ void CMainApplication::RenderFrame()
 		glFinish();
 	}
 
-	if(mpvBuffers != nullptr)
 	{
-		mpvBuffers->swap_mutex.unlock();
 	}
 
 	// Spew out the controller and pose count whenever they change.
@@ -1975,7 +1714,7 @@ bool CMainApplication::CreateAllShaders()
 		"	vec2 cursor_diff = (v2CursorLocation + arrow_size_frag) - v2UVcoords;\n"
 		"	vec2 arrow_coord = (arrow_size_frag - cursor_diff) / arrow_size_frag;\n"
 		"	vec4 arrow_col = texture(arrow_texture, arrow_coord);\n"
-		"	vec4 col = texture(mytexture, v2UVcoords);\n"
+		"	vec4 col = vec4(1.0);\n"
 		"	if(arrow_size_frag.x < 0.01 || arrow_size_frag.y < 0.01 || arrow_coord.x < 0.0 || arrow_coord.x > 1.0 || arrow_coord.y < 0.0 || arrow_coord.y > 1.0) arrow_col.a = 0.0;\n"
 		"	outputColor = mix(col, arrow_col.bgra, arrow_col.a);\n"
 		"}\n"
@@ -2129,7 +1868,7 @@ bool CMainApplication::SetCursorFromX11CursorImage(XFixesCursorImage *x11_cursor
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	cursor_scale_uniform[0] = 0.01 * cursor_scale;
+        cursor_scale_uniform[0] = 0.01 * cursor_scale;
 	cursor_scale_uniform[1] = cursor_scale_uniform[0] * arrow_ratio * ((float)arrow_image_height / (float)(arrow_image_width == 0 ? 1 : arrow_image_width));
 
 	glUseProgram( m_unSceneProgramID );
@@ -2154,49 +1893,20 @@ Window CMainApplication::get_focused_window() {
 }
 
 void CMainApplication::save_config() {
-	if(free_camera) {
-		switch(projection_mode) {
-			case ProjectionMode::SPHERE: {
-				config.sphere.position = hmd_pos;
-				break;
-			}
-			case ProjectionMode::FLAT: {
-				config.flat.position = hmd_pos;
-				break;
-			}
-			case ProjectionMode::CYLINDER: {
-				config.plane.position = hmd_pos;
-				break;
-			}
-			case ProjectionMode::SPHERE360: {
-				config.sphere360.position = hmd_pos;
-				break;
-			}
-		}
-	}
-	switch(projection_mode) {
-		case ProjectionMode::SPHERE: {
-			config.sphere.rotation = m_reset_rotation;
-			config.sphere.zoom = zoom;
-			break;
-		}
-		case ProjectionMode::FLAT: {
-			config.flat.rotation = m_reset_rotation;
-			config.flat.zoom = zoom;
-			break;
-		}
-		case ProjectionMode::CYLINDER: {
-			config.plane.rotation = m_reset_rotation;
-			config.plane.zoom = zoom;
-			break;
-		}
-		case ProjectionMode::SPHERE360: {
-			config.sphere360.rotation = m_reset_rotation;
-			config.sphere360.zoom = zoom;
-			break;
-		}
-	}
-	::save_config(config);
+        if(free_camera) {
+                if (projection_mode == ProjectionMode::FLAT)
+                        config.flat.position = hmd_pos;
+                else if (projection_mode == ProjectionMode::CYLINDER)
+                        config.plane.position = hmd_pos;
+        }
+        if (projection_mode == ProjectionMode::FLAT) {
+                config.flat.rotation = m_reset_rotation;
+                config.flat.zoom = zoom;
+        } else if (projection_mode == ProjectionMode::CYLINDER) {
+                config.plane.rotation = m_reset_rotation;
+                config.plane.zoom = zoom;
+        }
+        ::save_config(config);
 }
 
 
@@ -2378,194 +2088,61 @@ static void vertices_rotate(float *vertices, size_t num_vertices, float angle, g
 //-----------------------------------------------------------------------------
 void CMainApplication::AddCubeToScene( const glm::mat4 &mat, std::vector<float> &vertdata )
 {
-	double width_ratio = (double)pixmap_texture_width / (double)pixmap_texture_height;
-	arrow_ratio = width_ratio;
+        double width_ratio = (double)pixmap_texture_width / (double)pixmap_texture_height;
+        arrow_ratio = width_ratio;
 
-	Window root_window;
-	int x_return, y_return;
-	unsigned int width_return, height_return, border_width_return = 0, depth_return;
-	if(src_window_id)
-		XGetGeometry(x_display, src_window_id, &root_window, &x_return, &y_return, &width_return, &height_return, &border_width_return, &depth_return);
+        if (projection_mode == ProjectionMode::CYLINDER)
+        {
+                long columns = 64;
+                double angle_start = -0.8;
+                double angle_end = 0.8;
+                double height = 1.5;
+                double angle_len = angle_end - angle_start;
 
-	if(projection_mode == ProjectionMode::SPHERE)
-	{
-		long columns = 32;
-		long rows = 32;
-		double angle_x = 3.14;
-		double radius_height = 1.0;
-		double radius = radius_height * width_ratio * 0.5;
+                double width_start = sin(angle_start);
+                double width_end = sin(angle_start + angle_len);
+                double target_radius = height * width_ratio;
+                double radius = 2.0 * (target_radius / (width_end - width_start));
 
-		for(long row = 0; row < rows; ++row) {
-			for(long column = 0; column < columns; ++column) {
-				double offset_angle = 0.0;//angle_x*0.5;
+                for(long column = 0; column < columns; ++column) {
+                        double t1 = ((double)column / (double)columns);
+                        double t2 = (((double)column + 1) / (double)columns);
 
-				double y_sin1 = sin((double)row / (double)rows * 3.14);
-				double y_sin2 = sin((double)(row + 1) / (double)rows * 3.14);
+                        double x1 = sin(angle_start + t1 * angle_len) * radius;
+                        double y1 = cos(angle_start + t1 * angle_len) * radius * 0.6;
+                        double x2 = sin(angle_start + t2 * angle_len) * radius;
+                        double y2 = cos(angle_start + t2 * angle_len) * radius * 0.6;
 
-				double z1 = sin(offset_angle + (double)column / (double)columns * angle_x) * radius;
-				double z2 = sin(offset_angle + (double)(column + 1) / (double)columns * angle_x) * radius;
-				double z3 = z1;
+                        //     2     n
+                        // 1  /|   / |    m
+                        // | / | /   |  / |
+                        // |/  2     n/   |
+                        // 1              m
 
-				double z4 = z3;
-				double z5 = z2;
-				double z6 = z2;
+                        AddCubeVertex(x1, height, zoom + y1, 1 - t1, 0, vertdata);
+                        AddCubeVertex(x2, height, zoom + y2, 1 - t2, 0, vertdata);
+                        AddCubeVertex(x1, -height, zoom + y1, 1 - t1, 1, vertdata);
 
-				z1 *= y_sin1;
-				z2 *= y_sin1;
-				z3 *= y_sin2;
-				z4 *= y_sin2;
-				z5 *= y_sin2;
-				z6 *= y_sin1;
+                        AddCubeVertex(x1, -height, zoom + y1, 1 - t1, 1, vertdata);
+                        AddCubeVertex(x2, height, zoom + y2, 1 - t2, 0, vertdata);
+                        AddCubeVertex(x2, -height, zoom + y2, 1 - t2, 1, vertdata);
+                }
+        } else if (projection_mode == ProjectionMode::FLAT) {
+                double height = 0.5;
+                double width = height * (stretch ? 1.0 : 0.5) * width_ratio;
+                AddCubeVertex(-width,    height, zoom, 1.0, 0.0, vertdata);
+                AddCubeVertex(width,     height, zoom, 0.0, 0.0, vertdata);
+                AddCubeVertex(-width,   -height, zoom, 1.0, 1.0, vertdata);
 
-				double x1 = -cos(offset_angle + (double)column / (double)columns * angle_x) * radius;
-				double x2 = -cos(offset_angle + (double)(column + 1) / (double)columns * angle_x) * radius;
-				double x3 = x1;
+                AddCubeVertex(-width,   -height, zoom, 1.0, 1.0, vertdata);
+                AddCubeVertex(width,    -height, zoom, 0.0, 1.0, vertdata);
+                AddCubeVertex(width,     height, zoom, 0.0, 0.0, vertdata);
 
-				double x4 = x3;
-				double x5 = x2;
-				double x6 = x2;
+                if(stretch)
+                        arrow_ratio = width_ratio * 2.0;
+        }
 
-				x1 *= y_sin1;
-				x2 *= y_sin1;
-				x3 *= y_sin2;
-				x4 *= y_sin2;
-				x5 *= y_sin2;
-				x6 *= y_sin1;
-	#if 0
-				double y1 = cos((double)row / (double)rows * angle_y) * radius;
-				double y2 = y1;
-				double y3 = cos((double)(row + 1) / (double)rows * angle_y) * radius;
-
-				double y4 = y3;
-				double y5 = y3;
-				double y6 = y1;
-
-				z1 *= sin((double)row / (double)rows * angle_y) * radius_depth;
-				z2 *= sin((double)row / (double)rows * angle_y) * radius_depth;
-				z3 *= sin((double)(row + 1) / (double)rows * angle_y) * radius_depth;
-				z4 *= sin((double)(row + 1) / (double)rows * angle_y) * radius_depth;
-				z5 *= sin((double)(row + 1) / (double)rows * angle_y) * radius_depth;
-				z6 *= sin((double)row / (double)rows * angle_y) * radius_depth;
-
-				x1 *= sin((double)row / (double)rows * angle_y) * radius_depth;
-				x2 *= sin((double)row / (double)rows * angle_y) * radius_depth;
-				x3 *= sin((double)(row + 1) / (double)rows * angle_y) * radius_depth;
-				x4 *= sin((double)(row + 1) / (double)rows * angle_y) * radius_depth;
-				x5 *= sin((double)(row + 1) / (double)rows * angle_y) * radius_depth;
-				x6 *= sin((double)row / (double)rows * angle_y) * radius_depth;
-	#else
-				double y1 = cos((double)row / (double)rows * 3.14) * radius_height;
-				double y2 = y1;
-				double y3 = cos((double)(row + 1) / (double)rows * 3.14) * radius_height;
-
-				double y4 = y3;
-				double y5 = y3;
-				double y6 = y1;
-	#endif
-
-				glm::vec4 v1 = mat * glm::vec4(x1, y1, z1 + zoom, 1.0);
-				glm::vec4 v2 = mat * glm::vec4(x2, y2, z2 + zoom, 1.0);
-				glm::vec4 v3 = mat * glm::vec4(x3, y3, z3 + zoom, 1.0);
-				glm::vec4 v4 = mat * glm::vec4(x4, y4, z4 + zoom, 1.0);
-				glm::vec4 v5 = mat * glm::vec4(x5, y5, z5 + zoom, 1.0);
-				glm::vec4 v6 = mat * glm::vec4(x6, y6, z6 + zoom, 1.0);
-
-				AddCubeVertex(v1.x, v1.y, v1.z, 1.0 - (double)column / (double)columns,                 (double)row / (double)rows, vertdata);
-				AddCubeVertex(v2.x, v2.y, v2.z, 1.0 - (double)(column + 1) / (double)columns,   (double)row / (double)rows, vertdata);
-				AddCubeVertex(v3.x, v3.y, v3.z, 1.0 - (double)column / (double)columns,                 (double)(row + 1) / (double)rows, vertdata);
-
-				AddCubeVertex(v4.x, v4.y, v4.z, 1.0 - (double)column / (double)columns,                 (double)(row + 1) / (double)rows, vertdata);
-				AddCubeVertex(v5.x, v5.y, v5.z, 1.0 - (double)(column + 1) / (double)columns,   (double)(row + 1) / (double)rows, vertdata);
-				AddCubeVertex(v6.x, v6.y, v6.z, 1.0 - (double)(column + 1) / (double)columns,   (double)row / (double)rows, vertdata);
-			}
-		}
-	}
-	else if (projection_mode == ProjectionMode::CYLINDER)
-	{
-		long columns = 64;
-		double angle_start = -0.8;
-		double angle_end = 0.8;
-		double height = 1.5;
-		double angle_len = angle_end - angle_start;
-
-		double width_start = sin(angle_start);
-		double width_end = sin(angle_start + angle_len);
-		double target_radius = height * width_ratio;
-		double radius = 2.0 * (target_radius / (width_end - width_start));
-
-		for(long column = 0; column < columns; ++column) {
-			double t1 = ((double)column / (double)columns);
-			double t2 = (((double)column + 1) / (double)columns);
-
-			double x1 = sin(angle_start + t1 * angle_len) * radius;
-			double y1 = cos(angle_start + t1 * angle_len) * radius * 0.6;
-			double x2 = sin(angle_start + t2 * angle_len) * radius;
-			double y2 = cos(angle_start + t2 * angle_len) * radius * 0.6;
-
-			//     2     n
-			// 1  /|   / |    m
-			// | / | /   |  / |
-			// |/  2     n/   |
-			// 1              m
-
-			AddCubeVertex(x1, height, zoom + y1, 1 - t1, 0, vertdata);
-			AddCubeVertex(x2, height, zoom + y2, 1 - t2, 0, vertdata);
-			AddCubeVertex(x1, -height, zoom + y1, 1 - t1, 1, vertdata);
-
-			AddCubeVertex(x1, -height, zoom + y1, 1 - t1, 1, vertdata);
-			AddCubeVertex(x2, height, zoom + y2, 1 - t2, 0, vertdata);
-			AddCubeVertex(x2, -height, zoom + y2, 1 - t2, 1, vertdata);
-		}
-	} else if (projection_mode == ProjectionMode::FLAT) {
-		double height = 0.5;
-		double width = height * (stretch ? 1.0 : 0.5) * width_ratio;
-		AddCubeVertex(-width, 	 height, zoom, 1.0, 0.0, vertdata);
-		AddCubeVertex(width, 	 height, zoom, 0.0, 0.0, vertdata);
-		AddCubeVertex(-width, 	-height, zoom, 1.0, 1.0, vertdata);
-
-		AddCubeVertex(-width, 	-height, zoom, 1.0, 1.0, vertdata);
-		AddCubeVertex(width, 	-height, zoom, 0.0, 1.0, vertdata);
-		AddCubeVertex(width, 	 height, zoom, 0.0, 0.0, vertdata);
-
-		if(stretch)
-			arrow_ratio = width_ratio * 2.0;
-	} else if (projection_mode == ProjectionMode::SPHERE360) {
-		if(!mpv_file)
-			border_width_return += 2; // Meh, hac k to deal with seams a bit
-		double px = (double)border_width_return / (double)pixmap_texture_width;
-		double py = (double)border_width_return / (double)pixmap_texture_height;
-
-		double width = 1.0 - px * 2.0;
-		double height = 1.0 - py * 2.0;
-
-		double hz = zoom / (double)pixmap_texture_height;
-
-		double texture_width = width / 3.0;
-		double texture_height = height * 0.5;
-
-		for(int i = 0; i < 3; ++i) {
-			size_t plane_vertices_start = vertdata.size();
-			CreateSegmentedPlane(vertdata, 1.0f, 1.0f, 1.0f, texture_width, texture_height - hz, texture_width * (2 - i) + px, py + hz, 32, 32);
-			size_t plane_vertices_end = vertdata.size();
-			size_t num_vertex_data = (plane_vertices_end - plane_vertices_start) / 5;
-
-			plane_normalize_depth(&vertdata[plane_vertices_start], num_vertex_data, 1.0f);
-			vertices_rotate(&vertdata[plane_vertices_start], num_vertex_data, -glm::half_pi<float>() + i * glm::half_pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f));
-		}
-
-		for(int i = 0; i < 3; ++i) {
-			size_t plane_vertices_start = vertdata.size();
-			CreateSegmentedPlane(vertdata, 1.0f, 1.0f, 1.0f, texture_width, texture_height - hz, px + texture_width * i, 0.5f, 32, 32);
-			size_t plane_vertices_end = vertdata.size();
-			size_t num_vertex_data = (plane_vertices_end - plane_vertices_start) / 5;
-
-			plane_normalize_depth(&vertdata[plane_vertices_start], num_vertex_data, 1.0f);
-			vertices_rotate(&vertdata[plane_vertices_start], num_vertex_data, -glm::half_pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
-			vertices_rotate(&vertdata[plane_vertices_start], num_vertex_data, -glm::half_pi<float>() - i * glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
-		}
-	}
-
-	cursor_scale_uniform[0] = 0.01 * cursor_scale;
+cursor_scale_uniform[0] = 0.01 * cursor_scale;
 	cursor_scale_uniform[1] = cursor_scale_uniform[0] * arrow_ratio * ((float)arrow_image_height / (float)(arrow_image_width == 0 ? 1 : arrow_image_width));
 
 	glUseProgram( m_unSceneProgramID );
@@ -2625,28 +2202,6 @@ bool CMainApplication::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDe
 
 	return true;
 }
-
-void CMainApplication::set_current_context(SDL_GLContext context) {
-	std::lock_guard<std::mutex> lock(context_mutex);
-	SDL_GL_MakeCurrent(m_pCompanionWindow, context);
-}
-
-bool CMainApplication::take_render_update() {
-	std::unique_lock<std::mutex> lock(mpv_render_update_mutex);
-	while(!mpv_render_update && running)
-	{
-		mpv_render_update_condition.wait(lock);
-	}
-	mpv_render_update = false;
-	return true;
-}
-
-void CMainApplication::set_render_update() {
-	std::lock_guard<std::mutex> lock(mpv_render_update_mutex);
-	mpv_render_update = true;
-	mpv_render_update_condition.notify_one();
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose:
@@ -2775,7 +2330,6 @@ void CMainApplication::RenderStereoTargets()
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 {
-	if(!src_window_id && !mpv_file)
 		return;
 	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2799,12 +2353,12 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 	{
 		float offset = 0.0f;
 		float scale = 0.5f;
-		if(view_mode == ViewMode::RIGHT_LEFT) {
-			offset = 0.5f;
-		} else if(view_mode == ViewMode::PLANE || view_mode == ViewMode::SPHERE360) {
-			offset = 0.0f;
-			scale = 1.0f;
-		}
+                if(view_mode == ViewMode::RIGHT_LEFT) {
+                        offset = 0.5f;
+                } else if(view_mode == ViewMode::PLANE) {
+                        offset = 0.0f;
+                        scale = 1.0f;
+                }
 		glUniform1fv(m_nSceneTextureOffsetXLocation, 1, &offset);
 		glUniform1fv(m_nSceneTextureScaleXLocation, 1, &scale);
 
@@ -2813,14 +2367,14 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 	}
 	else if( nEye == vr::Eye_Right )
 	{
-		float offset = 0.5f;
-		float scale = 0.5f;
-		if (view_mode == ViewMode::RIGHT_LEFT) {
-			offset = 0.0f;
-		} else if (view_mode == ViewMode::PLANE || view_mode == ViewMode::SPHERE360) {
-			offset = 0.0f;
-			scale = 1.0f;
-		}
+                float offset = 0.5f;
+                float scale = 0.5f;
+                if (view_mode == ViewMode::RIGHT_LEFT) {
+                        offset = 0.0f;
+                } else if (view_mode == ViewMode::PLANE) {
+                        offset = 0.0f;
+                        scale = 1.0f;
+                }
 		glUniform1fv(m_nSceneTextureOffsetXLocation, 1, &offset);
 		glUniform1fv(m_nSceneTextureScaleXLocation, 1, &scale);
 
@@ -2839,13 +2393,10 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 
 	glBindVertexArray( m_unSceneVAO );
 	glActiveTexture(GL_TEXTURE0);
-	if(mpv_file)
 	{
-		if(mpvBuffers != nullptr)
 		{
 			m[0] = -1.0f;
 			m[1] = -1.0f;
-			glBindTexture(GL_TEXTURE_2D, mpvBuffers->get_showTextureId());
 		}
 	}
 	else
@@ -2853,9 +2404,7 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 		glBindTexture(GL_TEXTURE_2D, window_texture_get_opengl_texture_id(&window_texture));
 	}
 	glUniform2fv(m_nCursorLocation, 1, &m[0]);
-	//glBindTexture(GL_TEXTURE_2D, mpv_file ? mpvDesc.m_nRenderTextureId :  window_texture_get_opengl_texture_id(&window_texture));
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, mpv_file ? 0 : arrow_image_texture_id);
 	glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
 
 	glBindVertexArray( 0 );
@@ -2901,10 +2450,7 @@ void CMainApplication::RenderCompanionWindow()
 void CMainApplication::RenderOverlay() {
 	GLuint texture_id = 0;
 
-	if(mpv_file) {
-		if(!mpvBuffers)
 			return;
-		texture_id = mpvBuffers->get_showTextureId();
 	}
 	else if (overlay_buffers) {
 		// OpenVR relies on a shared OpenGL context

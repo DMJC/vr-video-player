@@ -12,18 +12,6 @@
 #include <glm/glm.hpp>
 #include <glm/ext/quaternion_float.hpp>
 
-struct SphereConfig {
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
-    float zoom = 0.0f;
-};
-
-struct Sphere360Config {
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
-    float zoom = 0.0f;
-};
-
 struct FlatConfig {
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
@@ -37,8 +25,6 @@ struct PlaneConfig {
 };
 
 struct Config {
-    SphereConfig sphere;
-    Sphere360Config sphere360;
     FlatConfig flat;
     PlaneConfig plane;
 };
@@ -224,19 +210,7 @@ static Config read_config(bool &exists) {
             return true;
         }
 
-        if(key == "sphere.position") {
-            string_to_vec3(std::string(value.str, value.size), config.sphere.position, key);
-        } else if(key == "sphere.rotation") {
-            string_to_quat(std::string(value.str, value.size), config.sphere.rotation, key);
-        } else if(key == "sphere.zoom") {
-            string_to_float(std::string(value.str, value.size), config.sphere.zoom, key);
-        } else if(key == "sphere360.position") {
-            string_to_vec3(std::string(value.str, value.size), config.sphere360.position, key);
-        } else if(key == "sphere360.rotation") {
-            string_to_quat(std::string(value.str, value.size), config.sphere360.rotation, key);
-        } else if(key == "sphere360.zoom") {
-            string_to_float(std::string(value.str, value.size), config.sphere360.zoom, key);
-        } else if(key == "flat.position") {
+        if(key == "flat.position") {
             string_to_vec3(std::string(value.str, value.size), config.flat.position, key);
         } else if(key == "flat.rotation") {
             string_to_quat(std::string(value.str, value.size), config.flat.rotation, key);
@@ -278,14 +252,6 @@ static void save_config(const Config &config) {
         fprintf(stderr, "Warning: Failed to create config file: %s\n", config_path.c_str());
         return;
     }
-
-    fprintf(file, "sphere.position %f|%f|%f\n", config.sphere.position.x, config.sphere.position.y, config.sphere.position.z);
-    fprintf(file, "sphere.rotation %f|%f|%f|%f\n", config.sphere.rotation.x, config.sphere.rotation.y, config.sphere.rotation.z, config.sphere.rotation.w);
-    fprintf(file, "sphere.zoom %f\n", config.sphere.zoom);
-
-    fprintf(file, "sphere360.position %f|%f|%f\n", config.sphere360.position.x, config.sphere360.position.y, config.sphere360.position.z);
-    fprintf(file, "sphere360.rotation %f|%f|%f|%f\n", config.sphere360.rotation.x, config.sphere360.rotation.y, config.sphere360.rotation.z, config.sphere360.rotation.w);
-    fprintf(file, "sphere360.zoom %f\n", config.sphere360.zoom);
 
     fprintf(file, "flat.position %f|%f|%f\n", config.flat.position.x, config.flat.position.y, config.flat.position.z);
     fprintf(file, "flat.rotation %f|%f|%f|%f\n", config.flat.rotation.x, config.flat.rotation.y, config.flat.rotation.z, config.flat.rotation.w);
