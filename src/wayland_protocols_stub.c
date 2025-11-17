@@ -1,4 +1,5 @@
 #include <wayland-util.h>
+#include <wayland-client-protocol.h>
 #include "../include/wlr-screencopy-unstable-v1-client-protocol.h"
 #include "../include/xdg-output-unstable-v1-client-protocol.h"
 
