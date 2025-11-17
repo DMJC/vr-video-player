@@ -340,7 +340,7 @@ void WlrScreencopy::frame_buffer(void *data, zwlr_screencopy_frame_v1 *frame, ui
     zwlr_screencopy_frame_v1_copy(frame, self->buffer.buffer);
 }
 
-void WlrScreencopy::frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t, uint32_t width, uint32_t height) {
+void WlrScreencopy::frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t, uint32_t width, uint32_t height, uint32_t, uint32_t) {
     auto *self = static_cast<WlrScreencopy *>(data);
     // Fallback to shm copy
     if (!self->ensure_buffer(width, height, width * 4, WL_SHM_FORMAT_ARGB8888)) {
@@ -351,7 +351,7 @@ void WlrScreencopy::frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *fra
     zwlr_screencopy_frame_v1_copy(frame, self->buffer.buffer);
 }
 
-void WlrScreencopy::frame_ready(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec) {
+void WlrScreencopy::frame_ready(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec, uint32_t) {
     auto *self = static_cast<WlrScreencopy *>(data);
     self->handle_ready(tv_sec_hi, tv_sec_lo, tv_nsec);
     zwlr_screencopy_frame_v1_destroy(frame);

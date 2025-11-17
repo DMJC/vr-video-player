@@ -30,8 +30,8 @@ struct zwlr_screencopy_manager_v1_listener {
 struct zwlr_screencopy_frame_v1_listener {
     void (*buffer)(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride);
     void (*buffer_done)(void *data, struct zwlr_screencopy_frame_v1 *frame);
-    void (*linux_dmabuf)(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height);
-    void (*ready)(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec);
+    void (*linux_dmabuf)(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t modifier_hi, uint32_t modifier_lo);
+    void (*ready)(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec, uint32_t flags);
     void (*failed)(void *data, struct zwlr_screencopy_frame_v1 *frame);
     void (*damage)(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 };
