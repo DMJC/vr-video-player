@@ -1153,21 +1153,22 @@ void CMainApplication::Shutdown()
 		glDeleteFramebuffers( 1, &leftEyeDesc.m_nResolveFramebufferId );
 
 		glDeleteRenderbuffers( 1, &rightEyeDesc.m_nDepthBufferId );
-		glDeleteTextures( 1, &rightEyeDesc.m_nRenderTextureId );
-		glDeleteFramebuffers( 1, &rightEyeDesc.m_nRenderFramebufferId );
-		glDeleteTextures( 1, &rightEyeDesc.m_nResolveTextureId );
-		glDeleteFramebuffers( 1, &rightEyeDesc.m_nResolveFramebufferId );
-	/*
+                 glDeleteTextures( 1, &rightEyeDesc.m_nRenderTextureId );
+                 glDeleteFramebuffers( 1, &rightEyeDesc.m_nRenderFramebufferId );
+                 glDeleteTextures( 1, &rightEyeDesc.m_nResolveTextureId );
+                 glDeleteFramebuffers( 1, &rightEyeDesc.m_nResolveFramebufferId );
+         /*
 
-		if( m_unCompanionWindowVAO != 0 )
-		{
-			glDeleteVertexArrays( 1, &m_unCompanionWindowVAO );
-		}
-		if( m_unSceneVAO != 0 )
-		{
-			glDeleteVertexArrays( 1, &m_unSceneVAO );
-		}
-	}
+                 if( m_unCompanionWindowVAO != 0 )
+                 {
+                         glDeleteVertexArrays( 1, &m_unCompanionWindowVAO );
+                 }
+                 if( m_unSceneVAO != 0 )
+                 {
+                         glDeleteVertexArrays( 1, &m_unSceneVAO );
+                 }
+         */
+         }
 
 	window_texture_deinit(&window_texture);
 
@@ -2388,43 +2389,44 @@ void CMainApplication::RenderStereoTargets()
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 {
-		return;
-	
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
+        if (!use_wlr_screencopy && !src_window_id)
+                return;
 
-	glUseProgram( m_unSceneProgramID );
-	glUniformMatrix4fv( m_nSceneMatrixLocation, 1, GL_FALSE, glm::value_ptr(GetCurrentViewProjectionMatrix( nEye )));
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
 
-	float m[2];
-	m[0] = mouse_x / (float)window_width;
-	m[1] = mouse_y / (float)window_height;
+        glUseProgram( m_unSceneProgramID );
+        glUniformMatrix4fv( m_nSceneMatrixLocation, 1, GL_FALSE, glm::value_ptr(GetCurrentViewProjectionMatrix( nEye )));
 
-	if(view_mode != ViewMode::PLANE) {
-		if(cursor_wrap && m[0] >= 0.5f)
-			m[0] -= 0.5f;
-		else if(!cursor_wrap)
-			m[0] *= 0.5f;
-	}
+        float m[2];
+        m[0] = mouse_x / (float)window_width;
+        m[1] = mouse_y / (float)window_height;
 
-	if( nEye == vr::Eye_Left )
-	{
-		float offset = 0.0f;
-		float scale = 0.5f;
+        if(view_mode != ViewMode::PLANE) {
+                if(cursor_wrap && m[0] >= 0.5f)
+                        m[0] -= 0.5f;
+                else if(!cursor_wrap)
+                        m[0] *= 0.5f;
+        }
+
+        if( nEye == vr::Eye_Left )
+        {
+                float offset = 0.0f;
+                float scale = 0.5f;
                 if(view_mode == ViewMode::RIGHT_LEFT) {
                         offset = 0.5f;
                 } else if(view_mode == ViewMode::PLANE) {
                         offset = 0.0f;
                         scale = 1.0f;
                 }
-		glUniform1fv(m_nSceneTextureOffsetXLocation, 1, &offset);
-		glUniform1fv(m_nSceneTextureScaleXLocation, 1, &scale);
+                glUniform1fv(m_nSceneTextureOffsetXLocation, 1, &offset);
+                glUniform1fv(m_nSceneTextureScaleXLocation, 1, &scale);
 
-		if(view_mode == ViewMode::RIGHT_LEFT)
-			m[0] += offset;
-	}
-	else if( nEye == vr::Eye_Right )
-	{
+                if(view_mode == ViewMode::RIGHT_LEFT)
+                        m[0] += offset;
+        }
+        else if( nEye == vr::Eye_Right )
+        {
                 float offset = 0.5f;
                 float scale = 0.5f;
                 if (view_mode == ViewMode::RIGHT_LEFT) {
@@ -2433,42 +2435,43 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
                         offset = 0.0f;
                         scale = 1.0f;
                 }
-		glUniform1fv(m_nSceneTextureOffsetXLocation, 1, &offset);
-		glUniform1fv(m_nSceneTextureScaleXLocation, 1, &scale);
+                glUniform1fv(m_nSceneTextureOffsetXLocation, 1, &offset);
+                glUniform1fv(m_nSceneTextureScaleXLocation, 1, &scale);
 
-		if(view_mode == ViewMode::LEFT_RIGHT)
-			m[0] += offset;
-	}
+                if(view_mode == ViewMode::LEFT_RIGHT)
+                        m[0] += offset;
+        }
 
 
-	float drawn_arrow_width = cursor_scale_uniform[0] * window_width;
-	float drawn_arrow_height = cursor_scale_uniform[1] * window_height;
-	float arrow_drawn_scale_x = drawn_arrow_width / (float)(arrow_image_width == 0 ? 1 : arrow_image_width);
-	float arrow_drawn_scale_y = drawn_arrow_height / (float)(arrow_image_height == 0 ? 1 : arrow_image_height);
+        float drawn_arrow_width = cursor_scale_uniform[0] * window_width;
+        float drawn_arrow_height = cursor_scale_uniform[1] * window_height;
+        float arrow_drawn_scale_x = drawn_arrow_width / (float)(arrow_image_width == 0 ? 1 : arrow_image_width);
+        float arrow_drawn_scale_y = drawn_arrow_height / (float)(arrow_image_height == 0 ? 1 : arrow_image_height);
 
-	m[0] += (-cursor_offset_x * arrow_drawn_scale_x) / (float)window_width;
-	m[1] += (-cursor_offset_y * arrow_drawn_scale_y) / (float)window_height;
+        m[0] += (-cursor_offset_x * arrow_drawn_scale_x) / (float)window_width;
+        m[1] += (-cursor_offset_y * arrow_drawn_scale_y) / (float)window_height;
 
-	glBindVertexArray( m_unSceneVAO );
-	glActiveTexture(GL_TEXTURE0);
-	{
-		{
-			m[0] = -1.0f;
-			m[1] = -1.0f;
-		}
-	}
-	else
+        glBindVertexArray( m_unSceneVAO );
+        glActiveTexture(GL_TEXTURE0);
+
+        GLuint source_texture = use_wlr_screencopy ? screencopy_texture : window_texture_get_opengl_texture_id(&window_texture);
+        if (source_texture == 0)
         {
-                GLuint source_texture = use_wlr_screencopy ? screencopy_texture : window_texture_get_opengl_texture_id(&window_texture);
+                m[0] = -1.0f;
+                m[1] = -1.0f;
+        }
+        else
+        {
                 glBindTexture(GL_TEXTURE_2D, source_texture);
         }
-	glUniform2fv(m_nCursorLocation, 1, &m[0]);
-	glActiveTexture(GL_TEXTURE1);
-	glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
+        glUniform2fv(m_nCursorLocation, 1, &m[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, arrow_image_texture_id);
+        glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
 
-	glBindVertexArray( 0 );
-	glActiveTexture(GL_TEXTURE0);
-	glUseProgram( 0 );
+        glBindVertexArray( 0 );
+        glActiveTexture(GL_TEXTURE0);
+        glUseProgram( 0 );
 }
 
 
@@ -2507,42 +2510,47 @@ void CMainApplication::RenderCompanionWindow()
 // Purpose: Present the window/video texture as an overlay
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderOverlay() {
-	GLuint texture_id = 0;
+        GLuint texture_id = 0;
 
-			return;
-	}
-	else if (overlay_buffers) {
-		// OpenVR relies on a shared OpenGL context
-		// which does not play well with the GLX
-		// extension used to copy data from the
-		// application, so data should be copied to a
-		// separate texture.
+        if (overlay_buffers) {
+                // OpenVR relies on a shared OpenGL context
+                // which does not play well with the GLX
+                // extension used to copy data from the
+                // application, so data should be copied to a
+                // separate texture.
 
-		overlay_buffers->swap_buffer();
+                overlay_buffers->swap_buffer();
 
                 GLuint ref_texture = use_wlr_screencopy ? screencopy_texture : window_texture_get_opengl_texture_id(&window_texture);
-		texture_id = overlay_buffers->get_showTextureId();
+                texture_id = overlay_buffers->get_showTextureId();
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, ref_texture);
-		glBindVertexArray( m_unCompanionWindowVAO );
-		glUseProgram(m_unOverlayProgramID);
-		glUniform1i(m_unOverlayTextureLoc, 0);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, ref_texture);
+                glBindVertexArray( m_unCompanionWindowVAO );
+                glUseProgram(m_unOverlayProgramID);
+                glUniform1i(m_unOverlayTextureLoc, 0);
 
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, overlay_buffers->get_renderFramebufferId());
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, overlay_buffers->get_renderFramebufferId());
 
-		glDisable(GL_DEPTH_TEST);
-		glDrawBuffer(GL_COLOR_ATTACHMENT0);
-		glViewport(0, 0, pixmap_texture_width, pixmap_texture_height);
+                glDisable(GL_DEPTH_TEST);
+                glDrawBuffer(GL_COLOR_ATTACHMENT0);
+                glViewport(0, 0, pixmap_texture_width, pixmap_texture_height);
 
-		glDrawElements( GL_TRIANGLES, m_uiCompanionWindowIndexSize/2, GL_UNSIGNED_SHORT, 0 );
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-	}
-	else
-		return;
+                glDrawElements( GL_TRIANGLES, m_uiCompanionWindowIndexSize/2, GL_UNSIGNED_SHORT, 0 );
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        }
+        else if (use_wlr_screencopy) {
+                texture_id = screencopy_texture;
+        }
+        else {
+                texture_id = window_texture_get_opengl_texture_id(&window_texture);
+        }
 
-	vr::Texture_t overlay_tex = {(void*)(uintptr_t)texture_id,
-		vr::TextureType_OpenGL, vr::ColorSpace_Gamma};
+        if (texture_id == 0)
+                return;
+
+        vr::Texture_t overlay_tex = {(void*)(uintptr_t)texture_id,
+                vr::TextureType_OpenGL, vr::ColorSpace_Gamma};
 
 	// Flip OpenGL texture upside down
 	vr::VRTextureBounds_t bounds = {0, 1, 1, 0};
