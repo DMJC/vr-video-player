@@ -81,6 +81,7 @@ void WlrScreencopy::upload_to_texture(GLuint texture_id) {
     std::vector<uint8_t> copy;
     int w = 0, h = 0;
     int stride = 0;
+    bool do_dump = false;
     {
         std::lock_guard<std::mutex> lock(frame_mutex);
         if (!frame_available)
@@ -89,7 +90,14 @@ void WlrScreencopy::upload_to_texture(GLuint texture_id) {
         w = frame_width;
         h = frame_height;
         stride = frame_stride;
+        if (!first_frame_dumped) {
+            first_frame_dumped = true;
+            do_dump = true;
+        }
         frame_available = false;
+    }
+    if (do_dump) {
+        dump_first_frame(copy, w, h, stride);
     }
     if (w <= 0 || h <= 0 || stride <= 0)
         return;
@@ -246,7 +254,6 @@ void WlrScreencopy::handle_ready(uint32_t, uint32_t, uint32_t) {
         frame_height = buffer.height;
         frame_stride = buffer.stride;
         frame_available = true;
-        dump_first_frame_locked();
     }
     pending_frame = false;
 }
@@ -372,8 +379,8 @@ void WlrScreencopy::frame_damage(void *, zwlr_screencopy_frame_v1 *, uint32_t, u
 
 void WlrScreencopy::frame_buffer_done(void *, zwlr_screencopy_frame_v1 *) {}
 
-void WlrScreencopy::dump_first_frame_locked() {
-    if (first_frame_dumped || frame_data.empty() || frame_width <= 0 || frame_height <= 0 || frame_stride <= 0)
+void WlrScreencopy::dump_first_frame(const std::vector<uint8_t> &data, int width, int height, int stride) {
+    if (first_frame_dumped || data.empty() || width <= 0 || height <= 0 || stride <= 0)
         return;
 
     FILE *file = fopen("wlr_first_frame.ppm", "wb");
@@ -383,17 +390,16 @@ void WlrScreencopy::dump_first_frame_locked() {
         return;
     }
 
-    fprintf(file, "P6\n%d %d\n255\n", frame_width, frame_height);
-    for (int y = 0; y < frame_height; ++y) {
-        const uint8_t *row = frame_data.data() + static_cast<size_t>(y) * frame_stride;
-        for (int x = 0; x < frame_width; ++x) {
+    fprintf(file, "P6\n%d %d\n255\n", width, height);
+    for (int y = 0; y < height; ++y) {
+        const uint8_t *row = data.data() + static_cast<size_t>(y) * stride;
+        for (int x = 0; x < width; ++x) {
             const uint8_t *px = row + static_cast<size_t>(x) * 4;
             unsigned char rgb[3] = {px[2], px[1], px[0]};
             fwrite(rgb, 1, 3, file);
         }
     }
     fclose(file);
-    first_frame_dumped = true;
-    std::cerr << "Wrote first screencopy frame to wlr_first_frame.ppm (" << frame_width << "x" << frame_height << ")" << std::endl;
+    std::cerr << "Wrote first screencopy frame to wlr_first_frame.ppm (" << width << "x" << height << ")" << std::endl;
 }
 

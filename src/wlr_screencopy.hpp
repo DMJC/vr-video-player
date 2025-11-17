@@ -75,7 +75,7 @@ private:
     void request_frame();
     void handle_ready(uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec);
     void handle_failed();
-    void dump_first_frame_locked();
+    void dump_first_frame(const std::vector<uint8_t> &data, int width, int height, int stride);
 
     wl_display *display = nullptr;
     wl_registry *registry = nullptr;
