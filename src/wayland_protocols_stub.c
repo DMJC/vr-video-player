@@ -3,9 +3,15 @@
 #include "../include/wlr-screencopy-unstable-v1-client-protocol.h"
 #include "../include/xdg-output-unstable-v1-client-protocol.h"
 
+static const struct wl_interface * const zwlr_screencopy_manager_v1_capture_output_types[] = {
+    &zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface};
+
+static const struct wl_interface * const zwlr_screencopy_manager_v1_capture_output_region_types[] = {
+    &zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface, NULL, NULL, NULL, NULL};
+
 static const struct wl_message zwlr_screencopy_manager_v1_requests[] = {
-    {"capture_output", "nuo", (const struct wl_interface * const[]){&zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface}},
-    {"capture_output_region", "nuoiiii", (const struct wl_interface * const[]){&zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface, NULL, NULL, NULL, NULL}},
+    {"capture_output", "nuo", zwlr_screencopy_manager_v1_capture_output_types},
+    {"capture_output_region", "nuoiiii", zwlr_screencopy_manager_v1_capture_output_region_types},
     {"destroy", "", NULL},
 };
 
@@ -15,15 +21,18 @@ const struct wl_interface zwlr_screencopy_manager_v1_interface = {
     0, NULL
 };
 
+static const struct wl_interface * const zwlr_screencopy_frame_v1_copy_types[] = {
+    &wl_buffer_interface};
+
 static const struct wl_message zwlr_screencopy_frame_v1_requests[] = {
-    {"copy", "o", (const struct wl_interface * const[]){&wl_buffer_interface}},
+    {"copy", "o", zwlr_screencopy_frame_v1_copy_types},
     {"destroy", "", NULL},
 };
 
 static const struct wl_message zwlr_screencopy_frame_v1_events[] = {
     {"buffer", "uuuu", NULL},
     {"buffer_done", "", NULL},
-    {"linux_dmabuf", "uiiuuuu", NULL},
+    {"linux_dmabuf", "uiiuuu", NULL},
     {"ready", "uuuu", NULL},
     {"failed", "", NULL},
     {"damage", "uuuu", NULL},
@@ -35,9 +44,12 @@ const struct wl_interface zwlr_screencopy_frame_v1_interface = {
     6, zwlr_screencopy_frame_v1_events
 };
 
+static const struct wl_interface * const zxdg_output_manager_v1_get_xdg_output_types[] = {
+    &zxdg_output_v1_interface, &wl_output_interface};
+
 static const struct wl_message zxdg_output_manager_v1_requests[] = {
     {"destroy", "", NULL},
-    {"get_xdg_output", "no", (const struct wl_interface * const[]){&zxdg_output_v1_interface, &wl_output_interface}},
+    {"get_xdg_output", "no", zxdg_output_manager_v1_get_xdg_output_types},
 };
 
 const struct wl_interface zxdg_output_manager_v1_interface = {
