@@ -5,8 +5,8 @@
 
 static const struct wl_message zwlr_screencopy_manager_v1_requests[] = {
     {"destroy", "", NULL},
-    {"capture_output", "nuo", (const struct wl_interface * const[]){&zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface}},
-    {"capture_output_region", "nuoiii", (const struct wl_interface * const[]){&zwlr_screencopy_frame_v1_interface, NULL, &wl_output_interface, NULL, NULL, NULL}},
+    {"capture_output", "nuo", (struct wl_interface * const[]){(struct wl_interface *)&zwlr_screencopy_frame_v1_interface, NULL, (struct wl_interface *)&wl_output_interface}},
+    {"capture_output_region", "nuoiii", (struct wl_interface * const[]){(struct wl_interface *)&zwlr_screencopy_frame_v1_interface, NULL, (struct wl_interface *)&wl_output_interface, NULL, NULL, NULL}},
 };
 
 const struct wl_interface zwlr_screencopy_manager_v1_interface = {
@@ -16,7 +16,7 @@ const struct wl_interface zwlr_screencopy_manager_v1_interface = {
 };
 
 static const struct wl_message zwlr_screencopy_frame_v1_requests[] = {
-    {"copy", "o", (const struct wl_interface * const[]){&wl_buffer_interface}},
+    {"copy", "o", (struct wl_interface * const[]){(struct wl_interface *)&wl_buffer_interface}},
     {"destroy", "", NULL},
 };
 
@@ -37,7 +37,7 @@ const struct wl_interface zwlr_screencopy_frame_v1_interface = {
 
 static const struct wl_message zxdg_output_manager_v1_requests[] = {
     {"destroy", "", NULL},
-    {"get_xdg_output", "no", (const struct wl_interface * const[]){&zxdg_output_v1_interface, &wl_output_interface}},
+    {"get_xdg_output", "no", (struct wl_interface * const[]){(struct wl_interface *)&zxdg_output_v1_interface, (struct wl_interface *)&wl_output_interface}},
 };
 
 const struct wl_interface zxdg_output_manager_v1_interface = {

@@ -27,6 +27,21 @@ public:
     int width() const { return frame_width; }
     int height() const { return frame_height; }
 
+    static void registry_global(void *data, wl_registry *registry, uint32_t name, const char *interface, uint32_t version);
+    static void registry_global_remove(void *data, wl_registry *registry, uint32_t name);
+    static void xdg_output_name(void *data, zxdg_output_v1 *output, const char *name);
+    static void xdg_output_logical_position(void *data, zxdg_output_v1 *output, int32_t, int32_t);
+    static void xdg_output_logical_size(void *data, zxdg_output_v1 *output, int32_t width, int32_t height);
+    static void xdg_output_done(void *data, zxdg_output_v1 *output);
+    static void xdg_output_description(void *data, zxdg_output_v1 *output, const char *description);
+
+    static void frame_buffer(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride);
+    static void frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height);
+    static void frame_ready(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec);
+    static void frame_failed(void *data, zwlr_screencopy_frame_v1 *frame);
+    static void frame_damage(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+    static void frame_buffer_done(void *data, zwlr_screencopy_frame_v1 *frame);
+
 private:
     struct OutputInfo {
         wl_output *output = nullptr;
@@ -57,21 +72,6 @@ private:
     void request_frame();
     void handle_ready(uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec);
     void handle_failed();
-
-    static void registry_global(void *data, wl_registry *registry, uint32_t name, const char *interface, uint32_t version);
-    static void registry_global_remove(void *data, wl_registry *registry, uint32_t name);
-    static void xdg_output_name(void *data, zxdg_output_v1 *output, const char *name);
-    static void xdg_output_logical_position(void *data, zxdg_output_v1 *output, int32_t, int32_t);
-    static void xdg_output_logical_size(void *data, zxdg_output_v1 *output, int32_t width, int32_t height);
-    static void xdg_output_done(void *data, zxdg_output_v1 *output);
-    static void xdg_output_description(void *data, zxdg_output_v1 *output, const char *description);
-
-    static void frame_buffer(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride);
-    static void frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height);
-    static void frame_ready(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec);
-    static void frame_failed(void *data, zwlr_screencopy_frame_v1 *frame);
-    static void frame_damage(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-    static void frame_buffer_done(void *data, zwlr_screencopy_frame_v1 *frame);
 
     wl_display *display = nullptr;
     wl_registry *registry = nullptr;
