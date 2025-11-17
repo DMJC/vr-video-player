@@ -190,6 +190,13 @@ static bool string_to_quat(std::string str, glm::quat &value, const StringView k
     return true;
 }
 
+static bool string_starts_with(const StringView &value, const char *prefix) {
+    size_t prefix_len = strlen(prefix);
+    if(prefix_len > value.size)
+        return false;
+    return memcmp(value.str, prefix, prefix_len) == 0;
+}
+
 static Config read_config(bool &exists) {
     setlocale(LC_ALL, "C");
 
@@ -222,6 +229,8 @@ static Config read_config(bool &exists) {
             string_to_quat(std::string(value.str, value.size), config.plane.rotation, key);
         } else if(key == "plane.zoom") {
             string_to_float(std::string(value.str, value.size), config.plane.zoom, key);
+        } else if(string_starts_with(key, "sphere.") || string_starts_with(key, "sphere360.")) {
+            // Legacy projection settings; kept for backward compatibility without warning noise.
         } else {
             fprintf(stderr, "Warning: Invalid config option: %.*s\n", (int)line.size, line.str);
         }

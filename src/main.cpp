@@ -1767,7 +1767,7 @@ bool CMainApplication::CreateAllShaders()
 		"	vec2 cursor_diff = (v2CursorLocation + arrow_size_frag) - v2UVcoords;\n"
 		"	vec2 arrow_coord = (arrow_size_frag - cursor_diff) / arrow_size_frag;\n"
 		"	vec4 arrow_col = texture(arrow_texture, arrow_coord);\n"
-		"	vec4 col = vec4(1.0);\n"
+		"	vec4 col = texture(mytexture, v2UVcoords);\n"
 		"	if(arrow_size_frag.x < 0.01 || arrow_size_frag.y < 0.01 || arrow_coord.x < 0.0 || arrow_coord.x > 1.0 || arrow_coord.y < 0.0 || arrow_coord.y > 1.0) arrow_col.a = 0.0;\n"
 		"	outputColor = mix(col, arrow_col.bgra, arrow_col.a);\n"
 		"}\n"
