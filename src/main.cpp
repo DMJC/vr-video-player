@@ -864,10 +864,13 @@ bool CMainApplication::BInit()
 	else
 		unWindowFlags |= SDL_WINDOW_HIDDEN;
 
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
-	//SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
+    // SteamVR and some driver stacks internally query GL_TEXTURE_2D state
+    // (e.g. via glIsEnabled), which is invalid on a core profile context.
+    // Use a compatibility profile to avoid GL_INVALID_ENUM spam from the
+    // debug callback while keeping the requested version.
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
 
 	SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
 	SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
