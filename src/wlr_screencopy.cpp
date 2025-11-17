@@ -340,10 +340,11 @@ void WlrScreencopy::frame_buffer(void *data, zwlr_screencopy_frame_v1 *frame, ui
     zwlr_screencopy_frame_v1_copy(frame, self->buffer.buffer);
 }
 
-void WlrScreencopy::frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t, uint32_t width, uint32_t height, uint32_t, uint32_t) {
+void WlrScreencopy::frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride, uint32_t, uint32_t, uint32_t) {
     auto *self = static_cast<WlrScreencopy *>(data);
     // Fallback to shm copy
-    if (!self->ensure_buffer(width, height, width * 4, WL_SHM_FORMAT_ARGB8888)) {
+    const uint32_t resolved_stride = stride ? stride : width * 4;
+    if (!self->ensure_buffer(width, height, resolved_stride, format)) {
         zwlr_screencopy_frame_v1_destroy(frame);
         self->pending_frame = false;
         return;

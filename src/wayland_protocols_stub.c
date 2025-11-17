@@ -23,7 +23,7 @@ static const struct wl_message zwlr_screencopy_frame_v1_requests[] = {
 static const struct wl_message zwlr_screencopy_frame_v1_events[] = {
     {"buffer", "uuuu", NULL},
     {"buffer_done", "", NULL},
-    {"linux_dmabuf", "uiiuu", NULL},
+    {"linux_dmabuf", "uiiuuuu", NULL},
     {"ready", "uuuu", NULL},
     {"failed", "", NULL},
     {"damage", "uuuu", NULL},

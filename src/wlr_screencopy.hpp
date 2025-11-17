@@ -37,7 +37,7 @@ public:
     static void xdg_output_description(void *data, zxdg_output_v1 *output, const char *description);
 
     static void frame_buffer(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride);
-    static void frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t modifier_hi, uint32_t modifier_lo);
+    static void frame_linux_dmabuf(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t format, uint32_t width, uint32_t height, uint32_t stride, uint32_t offset, uint32_t modifier_hi, uint32_t modifier_lo);
     static void frame_ready(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec, uint32_t flags);
     static void frame_failed(void *data, zwlr_screencopy_frame_v1 *frame);
     static void frame_damage(void *data, zwlr_screencopy_frame_v1 *frame, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
