@@ -285,9 +285,14 @@ void WlrScreencopy::registry_global(void *data, wl_registry *registry, uint32_t 
     if (strcmp(interface, wl_shm_interface.name) == 0) {
         self->shm = static_cast<wl_shm *>(wl_registry_bind(registry, name, &wl_shm_interface, 1));
     } else if (strcmp(interface, zwlr_screencopy_manager_v1_interface.name) == 0) {
-        self->screencopy_manager = static_cast<zwlr_screencopy_manager_v1 *>(wl_registry_bind(registry, name, &zwlr_screencopy_manager_v1_interface, 1));
+        if (version < 3) {
+            return;
+        }
+        const uint32_t screencopy_version = version > 3 ? 3 : version;
+        self->screencopy_manager = static_cast<zwlr_screencopy_manager_v1 *>(wl_registry_bind(registry, name, &zwlr_screencopy_manager_v1_interface, screencopy_version));
     } else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
-        self->xdg_output_manager = static_cast<zxdg_output_manager_v1 *>(wl_registry_bind(registry, name, &zxdg_output_manager_v1_interface, 3));
+        const uint32_t xdg_version = version > 3 ? 3 : version;
+        self->xdg_output_manager = static_cast<zxdg_output_manager_v1 *>(wl_registry_bind(registry, name, &zxdg_output_manager_v1_interface, xdg_version));
     } else if (strcmp(interface, wl_output_interface.name) == 0) {
         wl_output *output = static_cast<wl_output *>(wl_registry_bind(registry, name, &wl_output_interface, version >= 3 ? 3 : version));
         if (!self->xdg_output_manager)
